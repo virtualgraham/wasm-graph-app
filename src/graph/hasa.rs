@@ -1,6 +1,6 @@
 
 use super::refs::{Ref, Size};
-use super::quad::{Direction, QuadIndexer};
+use super::quad::{Direction, QuadStore};
 use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, is_null};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,13 +9,13 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub struct HasA {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Shape>>,
     dir: Direction,
 }
 
 impl HasA {
-    pub fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Shape>>, dir: Direction) -> Rc<RefCell<HasA>> {
+    pub fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Shape>>, dir: Direction) -> Rc<RefCell<HasA>> {
         Rc::new(RefCell::new(HasA {
             qs,
             primary,
@@ -84,7 +84,7 @@ impl Shape for HasA {
 
 
 struct HasANext {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Scanner>>,
     dir: Direction,
     result: Option<Ref>
@@ -92,7 +92,7 @@ struct HasANext {
 
 
 impl HasANext {
-    fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Scanner>>, dir: Direction) -> Rc<RefCell<HasANext>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Scanner>>, dir: Direction) -> Rc<RefCell<HasANext>> {
         Rc::new(RefCell::new(HasANext {
             qs,
             primary,
@@ -141,7 +141,7 @@ impl Scanner for HasANext {
         if !self.primary.borrow_mut().next(ctx) {
             return false
         }
-        self.result = Some(self.qs.quad_direction(self.primary.borrow().result().as_ref().unwrap(), &self.dir));
+        self.result = Some(self.qs.borrow().quad_direction(self.primary.borrow().result().as_ref().unwrap(), &self.dir));
         return true
     }
 
@@ -150,7 +150,7 @@ impl Scanner for HasANext {
 
 
 struct HasAContains {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Index>>,
     dir: Direction,
     results: Option<Rc<RefCell<dyn Scanner>>>,
@@ -159,7 +159,7 @@ struct HasAContains {
 }
 
 impl HasAContains {
-    fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Index>>, dir: Direction) -> Rc<RefCell<HasAContains>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Index>>, dir: Direction) -> Rc<RefCell<HasAContains>> {
         Rc::new(RefCell::new(HasAContains {
             qs,
             primary,
@@ -182,7 +182,7 @@ impl HasAContains {
             let link = self.results.as_ref().unwrap().borrow().result();
             // TODO logging
             if self.primary.borrow_mut().contains(ctx, link.as_ref().unwrap()) {
-                self.result = Some(self.qs.quad_direction(link.as_ref().unwrap(), &self.dir));
+                self.result = Some(self.qs.borrow().quad_direction(link.as_ref().unwrap(), &self.dir));
                 return true
             }
         }
@@ -247,7 +247,7 @@ impl Index for HasAContains {
         if self.results.is_some() {
             let _ = self.results.as_ref().unwrap().borrow_mut().close();
         }
-        self.results = Some(self.qs.quad_iterator(&self.dir, val).borrow().iterate());
+        self.results = Some(self.qs.borrow().quad_iterator(&self.dir, val).borrow().iterate());
         let ok = self.next_contains(ctx);
         if self.err.is_some() {
             return false

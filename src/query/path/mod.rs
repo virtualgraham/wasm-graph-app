@@ -1,5 +1,5 @@
 use crate::graph::value::Value;
-use crate::graph::quad::QuadStore;
+use crate::graph::quad::{Direction, QuadStore};
 //use crate::graph::iterator::Shape;
 use crate::query::shape::Shape;
 use std::rc::Rc;
@@ -69,8 +69,31 @@ impl Path {
 }
 
 
+pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, via:Option<Rc<RefCell<dyn Shape>>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>, r#in: bool) -> Rc<RefCell<dyn Shape>> {
+    let start = if r#in { Direction::Subject } else { Direction::Object };
+    let goal = if r#in { Direction::Object } else { Direction::Subject };
+
+    todo;
+}
+
+pub fn new_in(from:Rc<RefCell<dyn Shape>>, via:Option<Rc<RefCell<dyn Shape>>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>) -> Rc<RefCell<dyn Shape>> {
+    new_in_out(from, via, labels, tags, true)
+}
+
+pub fn new_out(from:Rc<RefCell<dyn Shape>>, via:Option<Rc<RefCell<dyn Shape>>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>) -> Rc<RefCell<dyn Shape>> {
+    new_in_out(from, via, labels, tags, false)
+}
+
+
+#[derive(Clone)]
 pub enum Via {
     None,
     Values(Vec<Value>),
     Path(Path),
+}
+
+impl Via {
+    fn as_shape(via: Vec<Via>) {
+        
+    }
 }

@@ -76,3 +76,30 @@ impl Morphism for InMorphism {
 
 
 
+pub struct OutMorphism {
+    tags: Vec<String>,
+    via: Via
+}
+
+impl OutMorphism {
+    pub fn new(tags: Vec<String>, via: Via) -> Rc<dyn Morphism> {
+        Rc::new(OutMorphism {
+            tags, 
+            via
+        })
+    }
+}
+
+impl Morphism for OutMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (InMorphism::new(self.tags.clone(), self.via.clone()), None)
+    }
+
+    fn apply(&self, out: Rc<RefCell<dyn Shape>>, ctx: PathContext) -> (Rc<RefCell<dyn Shape>>, PathContext) {
+        return shape::Out(out, self.via, ctx.label_set, self.tags)
+    }
+}
+
+
+
+

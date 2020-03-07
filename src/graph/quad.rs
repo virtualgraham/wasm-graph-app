@@ -17,6 +17,7 @@ pub struct Quad {
 #[derive(Debug, PartialEq, Clone)]
 #[repr(C)]
 pub enum Direction {
+    Any,
     Subject,
     Predicate,
     Object,

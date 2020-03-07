@@ -2,17 +2,19 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use io_context::Context;
 use super::super::graph::iterator;
+use super::super::graph::hasa::HasA;
 use super::super::graph::value::Value;
 use super::super::graph::refs::{Ref, Content};
-use super::super::graph::quad::{QuadStore};
-
+use super::super::graph::quad::{QuadStore, Direction};
+use super::path::Via;
 
 pub enum ShapeType {
     Lookup,
     Null,
     Fixed,
     AllNodes,
-    Intersect
+    Intersect,
+    NodesFrom
 }
 
 
@@ -48,6 +50,9 @@ struct ResolveValues {
 //         return None
 //     }
 // }
+
+
+///////////////////////////////////////////////
 
 
 pub struct Lookup (pub Vec<Value>);
@@ -110,6 +115,9 @@ impl Shape for Lookup {
 }
 
 
+///////////////////////////////////////////////
+
+
 pub struct Fixed (pub Vec<Ref>);
 
 impl Fixed {
@@ -146,6 +154,8 @@ impl Shape for Fixed {
 }
 
 
+///////////////////////////////////////////////
+
 
 pub struct Null ();
 
@@ -173,6 +183,9 @@ impl Shape for Null {
 }
 
 
+///////////////////////////////////////////////
+
+
 struct AllNodes ();
 
 impl AllNodes {
@@ -198,6 +211,9 @@ impl Shape for AllNodes {
         ShapeType::AllNodes
     }
 }
+
+
+///////////////////////////////////////////////
 
 
 pub struct Intersect (pub Vec<Rc<RefCell<dyn Shape>>>);
@@ -251,3 +267,86 @@ impl Shape for Intersect {
         ShapeType::Intersect
     }
 }
+
+
+///////////////////////////////////////////////
+
+
+pub struct NodesFrom {
+    dir: Direction,
+    quads: Rc<RefCell<dyn Shape>>
+}
+
+impl NodesFrom {
+
+}
+
+impl Shape for NodesFrom {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        if let ShapeType::Null = self.quads.borrow().shape_type() {
+            return iterator::Null::new() 
+        }
+        let sub = self.quads.borrow().build_iterator(qs);
+        if let Direction::Any = self.dir {
+            panic!("direction is not set");
+        }
+        return HasA::new(qs, sub, self.dir)
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(&self) -> ShapeType {
+        ShapeType::NodesFrom
+    }
+}
+
+
+///////////////////////////////////////////////
+
+
+pub struct QuadFilter {
+    dir: Direction,
+    values: Rc<RefCell<dyn Shape>>
+}
+
+impl Shape for QuadFilter {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(&self) -> ShapeType {
+        ShapeType::NodesFrom
+    }
+}
+
+
+///////////////////////////////////////////////
+
+
+pub struct Save {
+    tags: Vec<String>,
+    from: Rc<RefCell<dyn Shape>>
+}
+
+impl Shape for Save {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(&self) -> ShapeType {
+        ShapeType::NodesFrom
+    }
+}
+
+
+
