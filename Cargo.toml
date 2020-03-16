@@ -1,9 +1,9 @@
 # You must change these to your own details.
 [package]
-name = "rust-webpack-template"
-description = "My super awesome Rust, WebAssembly, and Webpack project!"
-version = "0.1.0"
-authors = ["You <you@example.com>"]
+name = "gizmo-graph-db"
+description = "A Rust port of the Cayley Graph Database query engine"
+version = "0.0.0"
+authors = ["Graham Shaprio <virtualgraham@gmail.com>"]
 categories = ["wasm"]
 readme = "README.md"
 edition = "2018"

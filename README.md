@@ -1,3 +1,3 @@
-## WASM Graph App
+## Gizmo Graph DB
 
-A Graph Database targeting Web Assembly that implements the Gremlin query engine from [Cayley](https://github.com/cayleygraph/cayley). It is currently structured as a hybrid web application to simplify testing and debugging during development. Later it will be restructured to work as an npm package.
+A Rust port of the [Cayley Graph Database](https://github.com/cayleygraph/cayley) query engine. Initially this will be a queryable graph database targeting web assembly. But potentially it could be modified to be used as an cross-platform embedable graph database if a Javascript runtime was included, such as [Deno](https://deno.land/). It is currently structured as a hybrid web application to simplify testing and debugging during development. Later it will be restructured to work as an npm package.
