@@ -172,6 +172,9 @@ impl Path {
     }
 
 
+    ///////////////////////////
+    // Is(nodes: String[])
+    ///////////////////////////
     pub fn is(self, arr: Box<[JsValue]>) -> Path {
         let nodes = Path::box_jsvalue_to_vec_value(arr);
         let np = self.path.is(nodes);
@@ -180,18 +183,7 @@ impl Path {
 
 
 
-
-
-    pub fn in_out_value(self, value: &JsValue, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
-        let tags:Vec<String> = if let Some(t) = tags { Path::box_jsvalue_to_vec_strings(t) } else { Vec::new() };
-        let via = path::Via::Values(vec![value.into()]);
-
-        let np = if r#in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
-
-        Path::new(self.finals, np)
-    }
-
-    pub fn in_out_value_arr(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
+    fn _in_out_values(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
         let tags:Vec<String> = if let Some(t) = tags { Path::box_jsvalue_to_vec_strings(t) } else { Vec::new() };
         let via = path::Via::Values(Path::box_jsvalue_to_vec_value(values));
 
@@ -200,7 +192,7 @@ impl Path {
         Path::new(self.finals, np)
     }
 
-    pub fn in_out_path(self, path: &Path, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
+    fn _in_out_path(self, path: &Path, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
         let tags:Vec<String> = if let Some(t) = tags { Path::box_jsvalue_to_vec_strings(t) } else { Vec::new() };
         let via = path::Via::Path(path.path.clone());
 
@@ -209,179 +201,289 @@ impl Path {
         Path::new(self.finals, np)
     }
 
-
-    pub fn in_value(self, value: &JsValue, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_value(value, tags, true)
+    ///////////////////////////
+    // In(values: String[], tags: String[])
+    ///////////////////////////
+    pub fn in_values(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>) -> Path {
+        self._in_out_values(values, tags, true)
     }
 
-    pub fn in_value_arr(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_value_arr(values, tags, true)
-    }
-
+    ///////////////////////////
+    // In(path: Path, tags: String[])
+    ///////////////////////////
     pub fn in_path(self, path: &Path, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_path(path, tags, true)
+        self._in_out_path(path, tags, true)
     }
 
-
-    pub fn out_value(self, value: &JsValue, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_value(value, tags, false)
+    ///////////////////////////
+    // Out(values: String[], tags: String[])
+    ///////////////////////////
+    pub fn out_values(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>) -> Path {
+        self._in_out_values(values, tags, false)
     }
 
-    pub fn out_value_arr(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_value_arr(values, tags, false)
-    }
-
+    ///////////////////////////
+    // Out(path: Path, tags: String[])
+    ///////////////////////////
     pub fn out_path(self, path: &Path, tags: Option<Box<[JsValue]>>) -> Path {
-        self.in_out_path(path, tags, false)
+        self._in_out_path(path, tags, false)
     }
 
 
 
 
+    ///////////////////////////
+    // Both(values: String[], tags: String[])
+    ///////////////////////////
+    pub fn both_values(self, values: Box<[JsValue]>, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
+        let tags:Vec<String> = if let Some(t) = tags { Path::box_jsvalue_to_vec_strings(t) } else { Vec::new() };
+        let via = path::Via::Values(Path::box_jsvalue_to_vec_value(values));
+        
+        Path::new(self.finals, self.path.both_with_tags(tags, via))
+    }
 
-    pub fn both(self, predicate_path: &JsValue, tags: Option<Box<[JsValue]>>) -> Path {
+    ///////////////////////////
+    // Both(path: Path, tags: String[])
+    ///////////////////////////
+    pub fn both_path(self, path: &Path, tags: Option<Box<[JsValue]>>, r#in: bool) -> Path {
+        let tags:Vec<String> = if let Some(t) = tags { Path::box_jsvalue_to_vec_strings(t) } else { Vec::new() };
+        let via = path::Via::Path(path.path.clone());
+        
+        Path::new(self.finals, self.path.both_with_tags(tags, via))
+    }
+
+
+
+
+    ///////////////////////////
+    // Follow(path: Path)
+    ///////////////////////////
+    pub fn follow(self, ep: &Path) -> Path {
+        return Path::new(self.finals, self.path.follow(ep.path.clone()))
+    }
+
+    ///////////////////////////
+    // FollowR(path: Path)
+    ///////////////////////////
+    pub fn follow_r(self, ep: &Path) -> Path {
+        return Path::new(self.finals, self.path.follow_reverse(ep.path.clone()))
+    }
+
+
+
+    ///////////////////////////
+    // FollowRecursive(path: Path, maxDepth: int, tags: Stringp[])
+    ///////////////////////////
+    pub fn follow_recursive(self, path: &Path) -> Path {
         self
     }
 
-    pub fn follow(self, path: &JsValue) -> Path {
-        self
-    }
-
-    //#[wasm_bindgen(js_name = followR)]
-    pub fn follow_r(self, path: &JsValue) -> Path {
-        self
-    }
-
-    //#[wasm_bindgen(js_name = followRecursive)]
-    pub fn follow_recursive(self, args: Option<Box<[JsValue]>>) -> Path {
-        self
-    }
-
+    ///////////////////////////
+    // And(path: Path)
+    ///////////////////////////
     pub fn and(self, path: &JsValue) -> Path {
         self
     }
 
-    pub fn itersect(self, path: &JsValue) -> Path {
+    ///////////////////////////
+    // Intersect(path: Path)
+    ///////////////////////////
+    pub fn intersect(self, path: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Union(path: Path)
+    ///////////////////////////
     pub fn union(self, path: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Or(path: Path)
+    ///////////////////////////
     pub fn or(self, path: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Back(tag: String)
+    ///////////////////////////
     pub fn back(self, tag: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Back(tags: String[])
+    ///////////////////////////
     pub fn tag(self, tags: Box<[JsValue]>) -> Path {
         self
     }
 
+    ///////////////////////////
+    // As(tags: String[])
+    ///////////////////////////
     #[wasm_bindgen(js_name = as)]
     pub fn r#as(self, tags: Box<[JsValue]>) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Has(predicate: String, object: String)
+    ///////////////////////////
+
+    ///////////////////////////
+    // *Has(predicate: Path, object: String)
+    // *Has(predicate: String, filters: Filter[])
+    // *Has(predicate: Path, filters: Filter[])
+    ///////////////////////////
     pub fn has(self, predicate: &JsValue, object: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = hasR)]
+    ///////////////////////////
+    // HasR(predicate: String, object: String)
+    ///////////////////////////
+    
+    ///////////////////////////
+    // *HasR(predicate: Path, object: String)
+    // *HasR(predicate: String, filters: Filter[])
+    // *HasR(predicate: Path, filters: Filter[])
+    ///////////////////////////
     pub fn has_r(self, args: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
+
+    ///////////////////////////
+    // Save(predicate: String, tag: String)
+    ///////////////////////////
     pub fn save(self, predicate: &JsValue, object: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = saveR)]
+    ///////////////////////////
+    // SaveR(predicate: String, tag: String)
+    ///////////////////////////
     pub fn save_r(self, args: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = saveOpt)]
+    ///////////////////////////
+    // SaveOpt(predicate: String, tag: String)
+    ///////////////////////////
     pub fn save_opt(self, args: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = saveOptR)]
+    ///////////////////////////
+    // SaveOptR(predicate: String, tag: String)
+    ///////////////////////////
     pub fn save_opt_r(self, args: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Except(path: Path)
+    ///////////////////////////
     pub fn except(self, path: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Unique()
+    ///////////////////////////
     pub fn unique(self) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Difference(path: Path)
+    ///////////////////////////
     pub fn difference(self, path: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Labels()
+    ///////////////////////////
     pub fn labels(self) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = inPredicates)]
+    ///////////////////////////
+    // InPredicates(tag:String)
+    ///////////////////////////
     pub fn in_predicates(self, tag: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = outPredicates)]
+    ///////////////////////////
+    // OutPredicates()
+    ///////////////////////////
     pub fn out_predicates(self, tag: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = saveInPredicates)]
+    ///////////////////////////
+    // SaveInPredicates(tag:String)
+    ///////////////////////////
     pub fn save_in_predicates(self, tag: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = saveOutPredicates)]
+    ///////////////////////////
+    // SaveOutPredicates(tag:String)
+    ///////////////////////////
     pub fn save_out_predicates(self, tag: &JsValue) -> Path {
         self
     }
 
-    //#[wasm_bindgen(js_name = labelContext)]
-    pub fn label_context(self, predicate_path: Option<Box<[JsValue]>>, tags: Option<Box<[JsValue]>>) -> Path {
+
+    ///////////////////////////
+    // LabelContext(values: String[], tags: String[])
+    ///////////////////////////
+    pub fn label_context_values(self, predicate_path: Option<Box<[JsValue]>>, tags: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
+    ///////////////////////////
+    // LabelContext(path: Path, tags: String[])
+    ///////////////////////////
+    pub fn label_context_path(self, predicate_path: Option<Box<[JsValue]>>, tags: Option<Box<[JsValue]>>) -> Path {
+        self
+    }
+
+
+    ///////////////////////////
+    // Filter(filter: Filter)
+    ///////////////////////////
     pub fn filter(self, args: Option<Box<[JsValue]>>) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Limit(limit: Number)
+    ///////////////////////////
     pub fn limit(self, limit: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Skip(offset: Number)
+    ///////////////////////////
     pub fn skip(self, offset: &JsValue) -> Path {
         self
     }
 
+    ///////////////////////////
+    // Order()
+    ///////////////////////////
     pub fn order(self) -> Path {
         self
     }
 
-    fn in_out(self, predicate: &JsValue, tags: Option<Box<[JsValue]>>, in_: bool) -> Path {
-        // if let Some(s) = v {
-        //     console::log_1(&JsValue::from("Some"));
-        //     for i in 0..s.len() {
-        //         console::log_1(&s[i]);
-        //     }
-        // } else {
-        //     console::log_1(&JsValue::from("None"));
-        // }
-        self
-    }
+
 }
 
 

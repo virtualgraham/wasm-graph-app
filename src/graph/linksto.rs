@@ -1,6 +1,6 @@
 
 use super::refs::{Ref, Size};
-use super::quad::{Direction, QuadIndexer};
+use super::quad::{Direction, QuadStore};
 use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, Null, is_null};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,14 +9,14 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub struct LinksTo {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Shape>>,
     dir: Direction,
     size: Size
 }
 
 impl LinksTo {
-    pub fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Shape>>, dir: Direction) -> Rc<RefCell<LinksTo>> {
+    pub fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Shape>>, dir: Direction) -> Rc<RefCell<LinksTo>> {
         println!("LinksTo dir {:?}", dir);
         Rc::new(RefCell::new(LinksTo {
             qs,
@@ -45,7 +45,7 @@ impl LinksTo {
             };
 
             for v in fixed.values.borrow().iter() {
-                let sit = self.qs.quad_iterator(&self.dir, v);
+                let sit = self.qs.borrow().quad_iterator(&self.dir, v);
                 let st = sit.borrow_mut().stats(ctx);
                 size.value += st.as_ref().unwrap().size.value;
                 size.exact = size.exact && st.as_ref().unwrap().size.exact;
@@ -55,7 +55,7 @@ impl LinksTo {
             return size;
         }
 
-        let stats = self.qs.stats(ctx, false).unwrap();
+        let stats = self.qs.borrow().stats(ctx, false).unwrap();
         let max_size = stats.quads.value/2 + 1;
 
         let fanout_factor = 20;
@@ -122,7 +122,7 @@ impl Shape for LinksTo {
 
 
 struct LinksToNext {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Scanner>>,
     dir: Direction,
     next_it: Rc<RefCell<dyn Scanner>>,
@@ -132,7 +132,7 @@ struct LinksToNext {
 
 
 impl LinksToNext {
-    fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Scanner>>, dir: Direction,) -> Rc<RefCell<LinksToNext>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Scanner>>, dir: Direction,) -> Rc<RefCell<LinksToNext>> {
         Rc::new(RefCell::new(LinksToNext {
             qs,
             primary,
@@ -206,7 +206,7 @@ impl Scanner for LinksToNext {
             }
 
             let _ = self.next_it.borrow_mut().close();
-            self.next_it = self.qs.quad_iterator(&self.dir, self.primary.borrow().result().as_ref().unwrap()).borrow().iterate();
+            self.next_it = self.qs.borrow().quad_iterator(&self.dir, self.primary.borrow().result().as_ref().unwrap()).borrow().iterate();
         }
     }
 
@@ -215,14 +215,14 @@ impl Scanner for LinksToNext {
 
 
 struct LinksToContains {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     primary: Rc<RefCell<dyn Index>>,
     dir: Direction,
     result: Option<Ref>,
 }
 
 impl LinksToContains {
-    fn new(qs: Rc<dyn QuadIndexer>, primary: Rc<RefCell<dyn Index>>, dir: Direction) -> Rc<RefCell<LinksToContains>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, primary: Rc<RefCell<dyn Index>>, dir: Direction) -> Rc<RefCell<LinksToContains>> {
         Rc::new(RefCell::new(LinksToContains {
             qs,
             primary,
@@ -267,7 +267,7 @@ impl Base for LinksToContains {
 
 impl Index for LinksToContains {
     fn contains(&mut self, ctx: &Context, val:&Ref) -> bool {
-        let node = self.qs.quad_direction(val, &self.dir);
+        let node = self.qs.borrow().quad_direction(val, &self.dir);
         if self.primary.borrow_mut().contains(ctx, &node) {
             self.result = Some(val.clone());
             return true

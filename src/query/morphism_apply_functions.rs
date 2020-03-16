@@ -2,9 +2,9 @@
 use crate::graph::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::{Morphism, PathContext};
-use crate::query::shape::{Shape, ShapeType, Lookup, Null, Intersect};
-use crate::query::path::{Via};
+use super::path::{Morphism, PathContext};
+use crate::query::shape::{Shape, ShapeType, Lookup, Union, Null, Intersect, new_in_out};
+use crate::query::path::{Via, Path};
 use crate::graph::quad::{QuadStore};
 
 pub fn join(its: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<dyn Shape>> {
@@ -70,7 +70,7 @@ impl Morphism for InMorphism {
     }
 
     fn apply(&self, r#in: Rc<RefCell<dyn Shape>>, ctx: PathContext) -> (Rc<RefCell<dyn Shape>>, PathContext) {
-        return shape::In(r#in, self.via, ctx.label_set, self.tags)
+        return (new_in_out(r#in, self.via.as_shape(), Some(ctx.label_set), self.tags, true), ctx)
     }
 }
 
@@ -96,10 +96,62 @@ impl Morphism for OutMorphism {
     }
 
     fn apply(&self, out: Rc<RefCell<dyn Shape>>, ctx: PathContext) -> (Rc<RefCell<dyn Shape>>, PathContext) {
-        return shape::Out(out, self.via, ctx.label_set, self.tags)
+        return (new_in_out(out, self.via.as_shape(), Some(ctx.label_set), self.tags, false), ctx)
+    }
+}
+
+
+
+pub struct BothMorphism {
+    tags: Vec<String>,
+    via: Via
+}
+
+impl BothMorphism {
+    pub fn new(tags: Vec<String>, via: Via) -> Rc<dyn Morphism> {
+        Rc::new(BothMorphism {
+            tags, 
+            via
+        })
+    }
+}
+
+impl Morphism for BothMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (BothMorphism::new(self.tags.clone(), self.via.clone()), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: PathContext) -> (Rc<RefCell<dyn Shape>>, PathContext) {
+        let via = self.via.as_shape();
+        return (Rc::new(RefCell::new(Union(vec![
+            new_in_out(shape, self.via.as_shape(), Some(ctx.label_set), self.tags, true),
+            new_in_out(shape, self.via.as_shape(), Some(ctx.label_set), self.tags, false)
+        ]))), ctx)
     }
 }
 
 
 
 
+
+pub struct FollowMorphism {
+    path: Path
+}
+
+impl FollowMorphism {
+    pub fn new(path: Path) -> Rc<dyn Morphism> {
+        Rc::new(FollowMorphism {
+            path
+        })
+    }
+}
+
+impl Morphism for FollowMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (FollowMorphism::new(self.path.reverse()), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: PathContext) -> (Rc<RefCell<dyn Shape>>, PathContext) {
+        (self.path.shape_from(shape), ctx)
+    }
+}

@@ -4,24 +4,29 @@ use io_context::Context;
 use super::super::graph::iterator;
 use super::super::graph::hasa::HasA;
 use super::super::graph::value::Value;
+use super::super::graph::linksto::LinksTo;
 use super::super::graph::refs::{Ref, Content};
 use super::super::graph::quad::{QuadStore, Direction};
-use super::path::Via;
+
 
 pub enum ShapeType {
     Lookup,
     Null,
-    Fixed,
+    Fixed(Fixed),
     AllNodes,
     Intersect,
-    NodesFrom
+    NodesFrom,
+    QuadFilter,
+    Quads,
+    Save,
+    Union
 }
 
 
 pub trait Shape {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>>;
     fn optimize(&mut self, ctx: &Context, o: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>;
-    fn shape_type(&self) -> ShapeType;
+    fn shape_type(self) -> ShapeType;
 }
 
 pub trait Optimizer{
@@ -109,7 +114,7 @@ impl Shape for Lookup {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(self) -> ShapeType {
         ShapeType::Lookup
     }
 }
@@ -148,8 +153,8 @@ impl Shape for Fixed {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
-        ShapeType::Fixed
+    fn shape_type(self) -> ShapeType {
+        ShapeType::Fixed(self)
     }
 }
 
@@ -177,7 +182,7 @@ impl Shape for Null {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(self) -> ShapeType {
         ShapeType::Null
     }
 }
@@ -186,7 +191,7 @@ impl Shape for Null {
 ///////////////////////////////////////////////
 
 
-struct AllNodes ();
+pub struct AllNodes ();
 
 impl AllNodes {
     pub fn new() -> Rc<RefCell<AllNodes>> {
@@ -207,7 +212,7 @@ impl Shape for AllNodes {
         return None      
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(self) -> ShapeType {
         ShapeType::AllNodes
     }
 }
@@ -263,7 +268,7 @@ impl Shape for Intersect {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(self) -> ShapeType {
         ShapeType::Intersect
     }
 }
@@ -275,10 +280,6 @@ impl Shape for Intersect {
 pub struct NodesFrom {
     dir: Direction,
     quads: Rc<RefCell<dyn Shape>>
-}
-
-impl NodesFrom {
-
 }
 
 impl Shape for NodesFrom {
@@ -297,7 +298,7 @@ impl Shape for NodesFrom {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(self) -> ShapeType {
         ShapeType::NodesFrom
     }
 }
@@ -308,10 +309,50 @@ impl Shape for NodesFrom {
 
 pub struct QuadFilter {
     dir: Direction,
-    values: Rc<RefCell<dyn Shape>>
+    values: Option<Rc<RefCell<dyn Shape>>>
 }
 
 impl Shape for QuadFilter {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        if self.values.is_none() {
+            return iterator::Null::new() 
+        }
+
+        if let Some(v) = one(self.values.unwrap().clone()) {
+            return qs.borrow().quad_iterator(&self.dir, &v)
+        }
+
+        if let Direction::Any = self.dir {
+            panic!("direction is not set")
+        }
+
+        let sub = self.values.unwrap().borrow().build_iterator(qs.clone());
+
+        LinksTo::new(qs.clone(), sub, self.dir.clone())
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(self) -> ShapeType {
+        ShapeType::QuadFilter
+    }
+}
+
+
+///////////////////////////////////////////////
+
+
+pub struct Quads(pub Vec<QuadFilter>);
+
+impl Quads {
+    fn interset(&mut self, q: Vec<QuadFilter>) {
+        self.0.append(&mut q)
+    }
+}
+
+impl Shape for Quads {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
 
     }
@@ -320,14 +361,13 @@ impl Shape for QuadFilter {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
-        ShapeType::NodesFrom
+    fn shape_type(self) -> ShapeType {
+        ShapeType::Quads
     }
 }
 
 
 ///////////////////////////////////////////////
-
 
 pub struct Save {
     tags: Vec<String>,
@@ -343,10 +383,93 @@ impl Shape for Save {
         return None
     }
 
-    fn shape_type(&self) -> ShapeType {
-        ShapeType::NodesFrom
+    fn shape_type(self) -> ShapeType {
+        ShapeType::Save
+    }
+}
+
+
+///////////////////////////////////////////////
+
+pub struct Union(pub Vec<Rc<RefCell<dyn Shape>>>);
+
+impl Shape for Union {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        return iterator::Null::new()
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(self) -> ShapeType {
+        ShapeType::Union
     }
 }
 
 
 
+
+
+
+
+// buildOut() from query/shape/path.go
+pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, via:Rc<RefCell<dyn Shape>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>, r#in: bool) -> Rc<RefCell<dyn Shape>> {
+    let start = if r#in { Direction::Subject } else { Direction::Object };
+    let goal = if r#in { Direction::Object } else { Direction::Subject };
+
+    if !tags.is_empty() {
+        via = Rc::new(RefCell::new(Save {
+            tags: tags,
+            from: via
+        }));
+    }
+
+    let quads = Rc::new(RefCell::new(Quads(Vec::new())));
+
+    if let ShapeType::AllNodes = from.borrow().shape_type() {
+        quads.borrow().0.push(QuadFilter {
+            dir: start,
+            values: Some(from)
+        });
+    }
+
+    if let ShapeType::AllNodes = via.borrow().shape_type() {
+        quads.borrow().0.push(QuadFilter {
+            dir: Direction::Predicate,
+            values: Some(via)
+        });
+    }
+
+    if labels.is_some() {
+        if let ShapeType::AllNodes = labels.unwrap().borrow().shape_type() {
+            quads.borrow().0.push(QuadFilter {
+                dir: Direction::Label,
+                values: Some(labels.unwrap())
+            });
+        }
+    }
+
+    Rc::new(RefCell::new(NodesFrom {
+        quads,
+        dir: goal
+    }))
+}
+
+pub fn new_in(from:Rc<RefCell<dyn Shape>>, via:Rc<RefCell<dyn Shape>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>) -> Rc<RefCell<dyn Shape>> {
+    new_in_out(from, via, labels, tags, true)
+}
+
+pub fn new_out(from:Rc<RefCell<dyn Shape>>, via:Rc<RefCell<dyn Shape>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>) -> Rc<RefCell<dyn Shape>> {
+    new_in_out(from, via, labels, tags, false)
+}
+
+
+fn one(shape: Rc<RefCell<dyn Shape>>) -> Option<Ref> {
+    if let ShapeType::Fixed(f) = shape.borrow().shape_type() {
+        if f.0.len() == 1 {
+            return Some(f.0[0])
+        }
+    }
+    return None
+}

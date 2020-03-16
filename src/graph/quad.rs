@@ -52,21 +52,21 @@ impl fmt::Display for Quad {
     }
 }
 
-pub trait QuadIndexer {
+
+pub trait QuadStore : Namer {
     fn quad(&self, r: &Ref) -> Quad;
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>>;
     fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String>;
     fn quad_direction(&self, r: &Ref, d: &Direction) -> Ref;
     fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String>;
-}
-
-pub trait QuadStore : Namer + QuadIndexer {
+    
     fn apply_deltas(&self) -> Option<String>;
     fn new_quad_writer(&self) -> Result<String, String>;
     fn nodes_all_iterator(&self) -> Rc<RefCell<dyn Shape>>;
     fn quads_all_iterator(&self) -> Rc<RefCell<dyn Shape>>;
     fn close(&self) -> Option<String>;
 }
+
 
 pub struct Stats {
     pub nodes: Size,
