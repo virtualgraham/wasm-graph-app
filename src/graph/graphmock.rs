@@ -1,4 +1,4 @@
-use super::quad::{Stats, Quad, QuadStore, Direction};
+use super::quad::{Stats, Quad, QuadStore, Direction, Delta, IgnoreOptions, Procedure, QuadWriter};
 use super::iterator::{Shape};
 use super::iterator::fixed::{Fixed};
 use super::value::{Value};
@@ -9,13 +9,13 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 
 pub struct Store {
-    pub data: Vec<Quad>
+    pub data: HashSet<Quad>
 }
 
 impl Store {
     pub fn new() -> Store {
         Store {
-            data: Vec::new()
+            data: HashSet::new()
         }
     }
 }
@@ -113,12 +113,19 @@ impl QuadStore for Store {
         })
     }
     
-    fn apply_deltas(&self) -> Option<String> {
-        return None
-    }
+    fn apply_deltas(&mut self, deltas: Vec<Delta>, ignore_opts: &IgnoreOptions) -> Result<(), String> {
+        // if !ignore_opts.ignore_dup || !ignore_opts.ignore_missing {
 
-    fn new_quad_writer(&self) -> Result<String, String> {
-        return Err("Not Implemented".to_string())
+        // }
+
+        for d in deltas {
+            match d.action {
+                Procedure::Add => self.data.insert(d.quad),
+                Procedure::Delete =>  self.data.remove(&d.quad),
+            };
+        }
+
+        Ok(())
     }
 
     fn nodes_all_iterator(&self) -> Rc<RefCell<dyn Shape>> {

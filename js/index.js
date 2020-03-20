@@ -18,7 +18,7 @@ console.log('cayley_wasm', cayley_wasm);
 
     console.log('path', path);
 
-    let f = path.out().in().out().all(1,2,3);
 
+    console.log('db.read()', db.read());
 
 })();

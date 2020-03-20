@@ -33,6 +33,10 @@ impl Recursive {
             depth_tags: Vec::new()
         }))
     }
+
+    pub fn add_depth_tag(&mut self, s: String) {
+        self.depth_tags.push(s);
+    }
 }
 
 
@@ -56,7 +60,7 @@ impl Shape for Recursive {
         let base = Fixed::new(Vec::new());
         base.borrow_mut().add(refs::Ref::new_i64_node(20));
        
-        let fanoutit = self.morphism.morph(&(base as Rc<RefCell<dyn Shape>>));
+        let fanoutit = self.morphism.morph((base as Rc<RefCell<dyn Shape>>).clone());
 
         let fanoutit_stats = fanoutit.borrow_mut().stats(ctx)?;
         let subit_stats = self.sub_it.borrow_mut().stats(ctx)?;
@@ -250,7 +254,7 @@ impl Scanner for RecursiveNext {
                 self.depth_cache = Vec::new();
                 let _ = self.next_it.borrow_mut().close();
 
-                self.next_it = self.morphism.morph(&tag(&self.base_it, &RECURSEIVE_BASE_TAG)).borrow().iterate();
+                self.next_it = self.morphism.morph(tag(&self.base_it, &RECURSEIVE_BASE_TAG).clone()).borrow().iterate();
 
                 continue
             }

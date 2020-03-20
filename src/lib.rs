@@ -27,5 +27,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 // }
 
 pub mod graph;
-mod query;
+pub mod query;
+
+
+
+#[macro_use]
+extern crate serde_derive;
 

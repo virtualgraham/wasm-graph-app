@@ -12,6 +12,7 @@ pub mod skip;
 pub mod sort;
 pub mod unique;
 pub mod value_filter;
+pub mod iterate;
 
 use std::collections::HashMap;
 use super::refs;
@@ -110,6 +111,8 @@ pub enum ShapeType<'a> {
     ValueFilter
 }
 
+
+
 pub trait Shape : fmt::Display {
     fn iterate(&self) -> Rc<RefCell<dyn Scanner>>;
 
@@ -132,7 +135,7 @@ pub trait Shape : fmt::Display {
 
 
 pub trait Morphism {
-    fn morph(&self, shape: &Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>;
+    fn morph(&self, shape: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>;
 }
 
 

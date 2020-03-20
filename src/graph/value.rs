@@ -8,6 +8,7 @@ use std::fmt;
 use wasm_bindgen::JsValue;
 
 #[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Value {
     Undefined,
     Null,

@@ -1,10 +1,10 @@
-use cayley_wasm::graph::iterator::fixed::{Fixed};
+use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use std::rc::Rc;
 use std::cell::RefCell;
-use cayley_wasm::graph::iterator::{Shape, Scanner, Index, Costs, Base, ShapeType};
+use gizmo_graph_db::graph::iterator::{Shape, Scanner, Index, Costs, Base, ShapeType};
 use io_context::Context;
-use cayley_wasm::graph::refs;
-use cayley_wasm::graph::value::Value;
+use gizmo_graph_db::graph::refs;
+use gizmo_graph_db::graph::value::Value;
 use std::collections::HashMap;
 use std::fmt;
 

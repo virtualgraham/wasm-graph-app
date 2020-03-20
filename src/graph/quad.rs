@@ -1,12 +1,14 @@
 use super::value::Value;
 use super::refs::{Size, Ref, Namer};
 use super::iterator::{Shape};
+use super::transaction::Transaction;
 use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Quad {
     pub subject: Value,
     pub predicate: Value,
@@ -40,6 +42,7 @@ impl Quad {
             Direction::Predicate => &self.predicate,
             Direction::Object => &self.object,
             Direction::Label => &self.label,
+            Direction::Any => panic!("invalid direction"),
         }
     }
 }
@@ -52,6 +55,20 @@ impl fmt::Display for Quad {
     }
 }
 
+pub struct IgnoreOptions {
+    pub ignore_dup: bool,
+    pub ignore_missing: bool,
+}
+
+pub struct Delta {
+    pub quad: Quad,
+    pub action: Procedure
+}
+
+pub enum Procedure {
+    Add,
+    Delete
+}
 
 pub trait QuadStore : Namer {
     fn quad(&self, r: &Ref) -> Quad;
@@ -60,11 +77,50 @@ pub trait QuadStore : Namer {
     fn quad_direction(&self, r: &Ref, d: &Direction) -> Ref;
     fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String>;
     
-    fn apply_deltas(&self) -> Option<String>;
-    fn new_quad_writer(&self) -> Result<String, String>;
+    fn apply_deltas(&mut self, deltas: Vec<Delta>, ignore_opts: &IgnoreOptions) -> Result<(), String>;
+    // fn new_quad_writer(&self) -> Result<QuadWriter, String>;
     fn nodes_all_iterator(&self) -> Rc<RefCell<dyn Shape>>;
     fn quads_all_iterator(&self) -> Rc<RefCell<dyn Shape>>;
     fn close(&self) -> Option<String>;
+}
+
+pub struct QuadWriter {
+    qs: Rc<RefCell<dyn QuadStore>>,
+    ignore_opts: IgnoreOptions
+}
+
+impl QuadWriter {
+
+    pub fn new(qs: Rc<RefCell<dyn QuadStore>>, ignore_opts: IgnoreOptions) -> QuadWriter {
+        QuadWriter {
+            qs,
+            ignore_opts
+        }
+    }
+
+    pub fn add_quad(&self, quad: Quad) -> Result<(), String> {
+        self.qs.borrow_mut().apply_deltas(vec![Delta{action: Procedure::Add, quad}], &self.ignore_opts)
+    }
+    
+    pub fn add_quad_set(&self, quads: Vec<Quad>) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn remove_quad(&self, quad: Quad) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn apply_transaction(&self, transaction: Transaction) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn remove_node(&self, value: Value) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn close(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 
