@@ -21,15 +21,15 @@ pub trait Morphism {
 
 #[derive(Clone)]
 pub struct PathContext {
-    pub label_set: Rc<RefCell<dyn Shape>>
+    pub label_set: Option<Rc<RefCell<dyn Shape>>>
 }
 
 
 #[derive(Clone)]
 pub struct Path {
     stack: Vec<Rc<dyn Morphism>>,
-    pub session: Option<Rc<RefCell<Session>>>,
-    pub base_context: Option<PathContext>
+    pub qs: Option<Rc<RefCell<dyn QuadStore>>>,
+    pub base_context: PathContext
 }
 
 
@@ -38,15 +38,15 @@ impl Path {
         Path::start_path(None, nodes)
     }
 
-    pub fn start_path(session: Option<Rc<RefCell<Session>>>, nodes: Vec<Value>) -> Path {
-        Path::new(session, vec![morphism_apply_functions::IsMorphism::new(nodes)])
+    pub fn start_path(qs: Option<Rc<RefCell<dyn QuadStore>>>, nodes: Vec<Value>) -> Path {
+        Path::new(qs, vec![morphism_apply_functions::IsMorphism::new(nodes)])
     }
 
-    pub fn new(session: Option<Rc<RefCell<Session>>>, stack: Vec<Rc<dyn Morphism>>) -> Path {
+    pub fn new(qs: Option<Rc<RefCell<dyn QuadStore>>>, stack: Vec<Rc<dyn Morphism>>) -> Path {
         Path {
             stack,
-            session,
-            base_context: None
+            qs,
+            base_context: PathContext{ label_set: None }
         }   
     }
 
@@ -113,11 +113,11 @@ impl Path {
 
 
     pub fn reverse(self) -> Path {
-        let mut new_path = Path::new(self.session.clone(), Vec::new());
-        let ctx = new_path.base_context.as_ref().unwrap();
+        let mut new_path = Path::new(self.qs.clone(), Vec::new());
+        let ctx = new_path.base_context.clone();
 
         for x in self.stack.iter().rev() {
-            let (rev_morphism, _) = x.reversal(ctx); 
+            let (rev_morphism, _) = x.reversal(&ctx); 
             new_path.stack.push(rev_morphism);
         }
         
@@ -131,7 +131,7 @@ impl Path {
 
     pub fn shape_from(&self, from: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>> {
         let mut s = from;
-        let mut ctx = self.base_context.as_ref().unwrap().clone();
+        let mut ctx = self.base_context.clone();
 
         for m in &self.stack {
             let r = m.apply(s, &ctx);

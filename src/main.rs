@@ -7,58 +7,73 @@ use graph::quad::Quad;
 #[macro_use]
 extern crate serde_derive;
 
+use graph::refs::Ref;
+use std::collections::HashMap;
 
 fn main() {
     let simple_graph = gizmo::new_memory_graph();
 
-    simple_graph.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
-    simple_graph.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
-    simple_graph.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
+    {
+        let session = simple_graph.s.borrow_mut();
 
-    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
-    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", "")]);
-    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
+        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
+        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
+        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
 
-    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
-    simple_graph.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
-    simple_graph.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
+        session.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", "")]);
+        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
 
-    simple_graph.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
-    simple_graph.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
-    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
+        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
 
-    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
-    simple_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
-    simple_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
+        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
 
-    let multi_graph = gizmo::new_memory_graph();
-    
-    multi_graph.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
-    multi_graph.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
-    multi_graph.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
+        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
 
-    multi_graph.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
-    multi_graph.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
-    multi_graph.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
+        let multi_graph = gizmo::new_memory_graph();
+        let session = multi_graph.s.borrow_mut();
 
-    multi_graph.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
-    multi_graph.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
-    multi_graph.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
+        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
+        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
+        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
 
-    multi_graph.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
-    multi_graph.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
-    multi_graph.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
+        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
 
-    multi_graph.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
-    multi_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
-    multi_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
+        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
 
-    multi_graph.write(vec![Quad::new("<fred>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
+        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
 
+        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
+        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
+
+        session.write(vec![Quad::new("<fred>", "<status>", "smart_person", "<smart_graph>")]);
+
+    }
     /////
     
 
     let g = simple_graph.g();
 
-    g.v(Some(vec!["<alice>".into()])).all();
+    // let r:Vec<HashMap<String, Ref>> = g.v(Some(vec!["<alice>".into()])).all().collect();
+
+    // let r:Vec<HashMap<String, Ref>> = g.v(None).all().collect();
+
+    // let r:Vec<HashMap<String, Ref>> = g.v(None).get_limit(5).collect();
+
+    let r:Vec<HashMap<String, Ref>> = g.v(None).out_values(vec!["<follows>".into()], None).all().collect();
+
+    println!("{:?} {}", r, r.len());
 }

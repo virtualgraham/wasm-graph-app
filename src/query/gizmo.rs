@@ -10,34 +10,61 @@ use crate::graph::iterator;
 use io_context::Context;
 use std::collections::HashMap;
 
-
-pub fn new_memory_graph() -> Session {
+pub fn new_memory_graph() -> Foo {
     let qs = Rc::new(RefCell::new(graphmock::Store::new()));
 
-    Session {
-        g: Graph::new(qs.clone()),
+    let s = Rc::new(RefCell::new(Session {
         ctx: Rc::new(RefCell::new(Context::background())),
         qs: qs.clone(),
         qw: QuadWriter::new(qs.clone(), IgnoreOptions{ignore_dup: true, ignore_missing: true}),
-        limit: 1000,
-        count: 0,
-        out: None
+        limit: -1
+    }));
+
+    let g = Graph::new(s.clone());
+
+    Foo {
+        g,
+        s
     }
 }
 
 
+pub struct Foo {
+    pub g: Graph,
+    pub s: Rc<RefCell<Session>>
+}
+
+impl Foo {
+    pub fn graph(self) -> Graph {
+        return self.g;
+    }
+
+    pub fn g(self) -> Graph {
+        return self.g;
+    }
+}
 
 pub struct Session {
-    g: Graph,
     ctx: Rc<RefCell<Context>>,
     qs: Rc<RefCell<dyn QuadStore>>,
     qw: QuadWriter,
-    limit: u64,
-    count: u64,
-    out: Option<SessionResult>
+    limit: i64
 }
 
+// struct RunIteratorTagMapCallback<'a>(&'a mut Session);
 
+// impl<'a> iterator::iterate::TagMapCallback for RunIteratorTagMapCallback<'a> {
+//     fn tag_map_callback(&mut self, tags: HashMap<String, Ref>) -> bool {
+//         let ctx = self.0.ctx.clone();
+
+//         if !self.0.send(QueryResult{meta: false, val: None, tags: tags}) {
+//             self.0.ctx.borrow_mut().add_cancel_signal().cancel();
+//             return true;
+//         }
+
+//         return false
+//     }
+// }
 
 impl Session {
     pub fn write(&self, quads: Vec<Quad>) {
@@ -54,81 +81,56 @@ impl Session {
 
     }
 
-    pub fn graph(self) -> Graph {
-        return self.g;
+
+
+    fn run_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::Chain {
+        iterator::iterate::Chain::new(self.ctx.clone(), it, false, self.limit, true)
     }
 
-    pub fn g(self) -> Graph {
-        return self.g;
-    }
-
-    fn run_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> Result<(), String> {
-        let mut stop = false;
-        let res = iterator::iterate::Chain::new(self.ctx.clone(), it).paths(true).tag_each(self);
-        if stop {
-            return Ok(())
-        }
-        return res
-    }
-
-    // TODO: This should be a lambda so we need to fix this because it violates encapsulation
-    pub fn do_tag(&mut self, tags: HashMap<String, Ref>) -> bool {
-        let ctx = self.ctx.clone();
-
-        if !self.send(SessionResult{meta: false, val: None, tags: tags}) {
-            self.ctx.borrow_mut().add_cancel_signal().cancel();
-            return true;
-        }
-
-        return false
-    }
-
-    fn send(&mut self, result: SessionResult) -> bool {
-        if self.limit > 0 && self.count >= self.limit {
-            return false
-        }
-        if self.out.is_none() {
-            return false
-        }
-        
-        self.out = Some(result);
-
-        if let Some(reason) = self.ctx.borrow().done() {
-            return false
-        }
-        self.count += 1;
-        return self.limit <= 0 || self.count < self.limit
-    }
 }
 
-struct SessionResult {
+
+
+
+struct QueryResult {
     meta: bool,
     val: Option<Value>,
     tags: HashMap<String, Ref>
 }
 
 pub struct Graph {
-    path: Option<Path>,
-    qs: Rc<RefCell<dyn QuadStore>>
+    session: Rc<RefCell<Session>>,
+    path: Option<Path>
 }
 
 
 impl Graph {
-    pub fn new(qs: Rc<RefCell<dyn QuadStore>>) -> Graph {
+    pub fn new(session: Rc<RefCell<Session>>) -> Graph {
         Graph {
             path: None,
-            qs
+            session
         }
     }
 
     pub fn v(mut self, qv: Option<Vec<Value>>) -> Path {
         let qv = match qv { Some(v) => v, None => Vec::new() };
-        self.path = Some(Path::new(true, path::Path::start_morphism(qv)));
+        self.path = Some(
+            Path::new(
+                self.session.clone(), 
+                true, 
+                path::Path::start_path(
+                    Some(
+                        self.session.borrow().qs.clone()
+                    ), 
+                    qv
+                )
+            )
+        );
         return self.path.unwrap();
     }
 
     pub fn m(mut self) -> Path {
-        self.path = Some(Path::new(false, path::Path::start_morphism(Vec::new())));
+        self.path = Some(Path::new(self.session.clone(), false, path::Path::start_morphism(Vec::new())));
         return self.path.unwrap();
     }
 }
@@ -136,13 +138,15 @@ impl Graph {
 
 #[derive(Clone)]
 pub struct Path {
+    pub session: Rc<RefCell<Session>>,
     finals: bool,
     path: path::Path
 }
 
 impl Path {
-    fn new(finals: bool, path: path::Path) -> Path {
+    fn new(session: Rc<RefCell<Session>>, finals: bool, path: path::Path) -> Path {
         Path {
+            session,
             finals,
             path
         }
@@ -154,10 +158,10 @@ impl Path {
     }
 
     fn build_iterator_tree(&self) -> Rc<RefCell<dyn iterator::Shape>> {
-        let s = &*self.path.session.as_ref().unwrap().borrow();
-        
+        let s = self.session.borrow();
         let ctx = s.ctx.borrow();
-        let qs = s.qs.clone();
+
+        let qs = self.session.borrow().qs.clone();
 
         self.path.build_iterator_on(&*ctx, qs)
     }
@@ -167,18 +171,17 @@ impl Path {
     ///////////////
 
 
-    pub fn get_limit(&self, limit: u64) {
+    pub fn get_limit(&self, limit: i64) -> iterator::iterate::Chain {
         let it = self.build_iterator_tree();
         let it = iterator::save::tag(&it, &"id");
 
-        let s = &mut*self.path.session.as_ref().unwrap().borrow_mut();
-        s.limit = limit;
-        s.count = 0;
-        s.run_iterator(it);
+        self.session.borrow_mut().limit = limit;
+        self.session.borrow_mut().run_iterator(it)
     }
 
-    pub fn all(self) {
-        self.get_limit(self.path.session.as_ref().unwrap().borrow().limit)
+    pub fn all(&mut self) -> iterator::iterate::Chain {
+        let limit = self.session.borrow().limit;
+        self.get_limit(limit)
     }
 
     // pub fn to_array(self, args: Option<Box<[JsValue]>>) -> JsValue {
@@ -224,7 +227,7 @@ impl Path {
     ///////////////////////////
     pub fn is(self, nodes: Vec<Value>) -> Path {
         let np = self.path.is(nodes);
-        Path::new(self.finals, np)
+        Path::new(self.session, self.finals, np)
     }
 
 
@@ -234,7 +237,7 @@ impl Path {
 
         let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
         
-        Path::new(self.finals, np)
+        Path::new(self.session, self.finals, np)
     }
 
     fn _in_out_path(self, path: &Path, tags: Option<Vec<String>>, dir_in: bool) -> Path {
@@ -243,7 +246,7 @@ impl Path {
 
         let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
         
-        Path::new(self.finals, np)
+        Path::new(self.session, self.finals, np)
     }
 
 
@@ -286,7 +289,7 @@ impl Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Values(values);
         
-        Path::new(self.finals, self.path.both_with_tags(tags, via))
+        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
     }
 
 
@@ -297,7 +300,7 @@ impl Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Path(path.path.clone());
         
-        Path::new(self.finals, self.path.both_with_tags(tags, via))
+        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
     }
 
 
@@ -305,7 +308,7 @@ impl Path {
     // Follow(path: Path)
     ///////////////////////////
     pub fn follow(self, ep: &Path) -> Path {
-        return Path::new(self.finals, self.path.follow(ep.path.clone()))
+        return Path::new(self.session, self.finals, self.path.follow(ep.path.clone()))
     }
 
 
@@ -313,7 +316,7 @@ impl Path {
     // FollowR(path: Path)
     ///////////////////////////
     pub fn follow_r(self, ep: &Path) -> Path {
-        return Path::new(self.finals, self.path.follow_reverse(ep.path.clone()))
+        return Path::new(self.session, self.finals, self.path.follow_reverse(ep.path.clone()))
     }
 
 
@@ -324,7 +327,7 @@ impl Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Path(path.path.clone());
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        return Path::new(self.finals, self.path.follow_recursive(via, max_depth, tags))
+        return Path::new(self.session, self.finals, self.path.follow_recursive(via, max_depth, tags))
     }
 
 
@@ -335,7 +338,7 @@ impl Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Values(vec![value]);
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        return Path::new(self.finals, self.path.follow_recursive(via, max_depth, tags))
+        return Path::new(self.session, self.finals, self.path.follow_recursive(via, max_depth, tags))
     }
 
 
@@ -344,7 +347,7 @@ impl Path {
     // Intersect(path: Path)
     ///////////////////////////
     pub fn intersect(self, path: &Path) -> Path {
-        return Path::new(self.finals, self.path.and(path.path.clone()))
+        return Path::new(self.session, self.finals, self.path.and(path.path.clone()))
     }
 
 
@@ -353,7 +356,7 @@ impl Path {
     // Union(path: Path)
     ///////////////////////////
     pub fn union(self, path: &Path) -> Path {
-        return Path::new(self.finals, self.path.or(path.path.clone()))
+        return Path::new(self.session, self.finals, self.path.or(path.path.clone()))
     }
 
 

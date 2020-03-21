@@ -72,7 +72,7 @@ impl Morphism for InMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
-        return (new_in_out(shape, self.via.as_shape(), Some(ctx.label_set.clone()), self.tags.clone(), true), None)
+        return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), true), None)
     }
 }
 
@@ -98,7 +98,7 @@ impl Morphism for OutMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
-        return (new_in_out(shape, self.via.as_shape(), Some(ctx.label_set.clone()), self.tags.clone(), false), None)
+        return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), false), None)
     }
 }
 
@@ -126,8 +126,8 @@ impl Morphism for BothMorphism {
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         let via = self.via.as_shape();
         return (Rc::new(RefCell::new(Union(vec![
-            new_in_out(shape.clone(), via.clone(), Some(ctx.label_set.clone()), self.tags.clone(), true),
-            new_in_out(shape.clone(), via.clone(), Some(ctx.label_set.clone()), self.tags.clone(), false)
+            new_in_out(shape.clone(), via.clone(), ctx.label_set.clone(), self.tags.clone(), true),
+            new_in_out(shape.clone(), via.clone(), ctx.label_set.clone(), self.tags.clone(), false)
         ]))), None)
     }
 }
