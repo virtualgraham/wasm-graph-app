@@ -1,8 +1,8 @@
-use cayley_wasm::graph::iterator::and::{And};
-use cayley_wasm::graph::iterator::save::{tag};
-use cayley_wasm::graph::iterator::{Shape, Null, is_null};
-use cayley_wasm::graph::refs::{Ref, Size};
-use cayley_wasm::graph::iterator::fixed::{Fixed};
+use gizmo_graph_db::graph::iterator::and::{And};
+use gizmo_graph_db::graph::iterator::save::{tag};
+use gizmo_graph_db::graph::iterator::{Shape, Null, is_null};
+use gizmo_graph_db::graph::refs::{Ref, Size};
+use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use std::rc::Rc;
 use std::cell::RefCell;
 use io_context::Context;

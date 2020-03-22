@@ -1,31 +1,31 @@
 use io_context::Context;
-use cayley_wasm::graph::iterator::fixed::{Fixed};
-use cayley_wasm::graph::iterator::and::{And};
-use cayley_wasm::graph::iterator::save::{tag};
-use cayley_wasm::graph::iterator::recursive::{Recursive};
-use cayley_wasm::graph::iterator::{Shape, Morphism};
-use cayley_wasm::graph::refs::{pre_fetched, Namer};
-use cayley_wasm::graph::value::{Value};
-use cayley_wasm::graph::linksto::{LinksTo};
-use cayley_wasm::graph::hasa::{HasA};
-use cayley_wasm::graph::graphmock::{Store};
-use cayley_wasm::graph::quad::{Quad, QuadIndexer, QuadStore, Direction};
+use gizmo_graph_db::graph::iterator::fixed::{Fixed};
+use gizmo_graph_db::graph::iterator::and::{And};
+use gizmo_graph_db::graph::iterator::save::{tag};
+use gizmo_graph_db::graph::iterator::recursive::{Recursive};
+use gizmo_graph_db::graph::iterator::{Shape, Morphism};
+use gizmo_graph_db::graph::refs::{pre_fetched, Namer};
+use gizmo_graph_db::graph::value::{Value};
+use gizmo_graph_db::graph::linksto::{LinksTo};
+use gizmo_graph_db::graph::hasa::{HasA};
+use gizmo_graph_db::graph::graphmock::{Store};
+use gizmo_graph_db::graph::quad::{Quad, QuadStore, Direction};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 
 struct SingleHop {
-    qs: Rc<dyn QuadIndexer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     pred: String
 }
 
 impl Morphism for SingleHop {
-    fn morph(&self, it: &Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>> {
+    fn morph(&self, shape: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>> {
         let fixed = Fixed::new(vec![]);
         fixed.borrow_mut().add(pre_fetched(Value::from(self.pred.clone())));
         let pred_lto = LinksTo::new(self.qs.clone(), fixed, Direction::Predicate);
-        let lto = LinksTo::new(self.qs.clone(), it.clone(), Direction::Subject);
+        let lto = LinksTo::new(self.qs.clone(), shape.clone(), Direction::Subject);
         let and = And::new(vec![]);
         and.borrow_mut().add_sub_iterator(lto);
         and.borrow_mut().add_sub_iterator(pred_lto);
@@ -44,7 +44,7 @@ fn rec_test_qs() -> Store {
             Quad::new("dani", "parent", "emily", ""),
             Quad::new("fred", "follows", "alice", ""),
             Quad::new("greg", "follows", "alice", ""),
-        ]
+        ].into_iter().collect()
     }
 }
 
@@ -53,7 +53,7 @@ fn rec_test_qs() -> Store {
 #[test]
 fn test_recursive_next() {
     let ctx = Context::background();
-    let qs = Rc::new(rec_test_qs());
+    let qs = Rc::new(RefCell::new(rec_test_qs()));
     let start = Fixed::new(vec![]);
     start.borrow_mut().add(pre_fetched(Value::from("alice")));
     let r = Recursive::new(start, Rc::new(SingleHop {qs: qs.clone(), pred: "parent".to_string()}), 0).borrow().iterate();
@@ -74,7 +74,7 @@ fn test_recursive_next() {
 #[test]
 fn test_recursive_contains() {
     let ctx = Context::background();
-    let qs = Rc::new(rec_test_qs());
+    let qs = Rc::new(RefCell::new(rec_test_qs()));
     let start = Fixed::new(vec![]);
     start.borrow_mut().add(pre_fetched(Value::from("alice")));
     let r = Recursive::new(start, Rc::new(SingleHop {qs: qs.clone(), pred: "parent".to_string()}), 0).borrow().lookup();
@@ -84,7 +84,7 @@ fn test_recursive_contains() {
     for i in 0..values.len() {
         let v = values[i];
 
-        let value = qs.value_of(&Value::from(v));
+        let value = qs.borrow().value_of(&Value::from(v));
         let ok = value.is_some() && r.borrow_mut().contains(&ctx, value.as_ref().unwrap()); 
         
         assert_eq!(expected[i], ok);
@@ -95,12 +95,12 @@ fn test_recursive_contains() {
 #[test]
 fn test_recursive_next_path() {
     let ctx = Context::background();
-    let qs = Rc::new(rec_test_qs());
+    let qs = Rc::new(RefCell::new(rec_test_qs()));
 
-    let start = qs.nodes_all_iterator();
+    let start = qs.borrow().nodes_all_iterator();
     let start = tag(&start, &"person");
     
-    let it = SingleHop {qs: qs.clone(), pred: "follows".to_string()}.morph(&start);
+    let it = SingleHop {qs: qs.clone(), pred: "follows".to_string()}.morph(start);
 
     let and = And::new(vec![]);
     and.borrow_mut().add_sub_iterator(it);

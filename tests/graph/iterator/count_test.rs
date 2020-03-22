@@ -1,10 +1,10 @@
 use io_context::Context;
-use cayley_wasm::graph::iterator::fixed::{Fixed};
-use cayley_wasm::graph::iterator::count::{Count};
-use cayley_wasm::graph::iterator::and::{And};
-use cayley_wasm::graph::iterator::{Shape};
-use cayley_wasm::graph::refs::{pre_fetched};
-use cayley_wasm::graph::value::{Value};
+use gizmo_graph_db::graph::iterator::fixed::{Fixed};
+use gizmo_graph_db::graph::iterator::count::{Count};
+use gizmo_graph_db::graph::iterator::and::{And};
+use gizmo_graph_db::graph::iterator::{Shape};
+use gizmo_graph_db::graph::refs::{pre_fetched};
+use gizmo_graph_db::graph::value::{Value};
 
 
 #[test]

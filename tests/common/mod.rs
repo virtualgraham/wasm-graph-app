@@ -56,7 +56,7 @@ impl Shape for Test {
     fn sub_iterators(&self) -> Option<Vec<Rc<RefCell<dyn Shape>>>> {
         self.shape.borrow().sub_iterators()
     }
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(&mut self) -> ShapeType {
         ShapeType::Test
     }
 }
@@ -212,7 +212,7 @@ impl Shape for Int64 {
         None
     }
 
-    fn shape_type(&self) -> ShapeType {
+    fn shape_type(&mut self) -> ShapeType {
         ShapeType::Int64
     }
 }

@@ -1,7 +1,7 @@
 use io_context::Context;
-use cayley_wasm::graph::iterator::materialize::{Materialize, MATERIALIZE_LIMIT};
-use cayley_wasm::graph::iterator::or::{Or};
-use cayley_wasm::graph::iterator::{Shape};
+use gizmo_graph_db::graph::iterator::materialize::{Materialize, MATERIALIZE_LIMIT};
+use gizmo_graph_db::graph::iterator::or::{Or};
+use gizmo_graph_db::graph::iterator::{Shape};
 use super::common;
 
 

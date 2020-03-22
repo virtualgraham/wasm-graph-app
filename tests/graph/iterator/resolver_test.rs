@@ -1,11 +1,11 @@
 use io_context::Context;
 
-use cayley_wasm::graph::iterator::resolver::{Resolver};
-use cayley_wasm::graph::iterator::{Shape};
-use cayley_wasm::graph::refs::{pre_fetched, Namer};
-use cayley_wasm::graph::value::{Value};
-use cayley_wasm::graph::graphmock::{Store};
-use cayley_wasm::graph::quad::{Quad};
+use gizmo_graph_db::graph::iterator::resolver::{Resolver};
+use gizmo_graph_db::graph::iterator::{Shape};
+use gizmo_graph_db::graph::refs::{pre_fetched, Namer};
+use gizmo_graph_db::graph::value::{Value};
+use gizmo_graph_db::graph::graphmock::{Store};
+use gizmo_graph_db::graph::quad::{Quad};
 use std::rc::Rc;
 use std::collections::HashMap;
 
@@ -25,7 +25,7 @@ fn test_resolver_iterator_iterate() {
         Value::from("3"),
     ];
 
-    let data:Vec<Quad> = nodes.iter().map(|n| {
+    let data = nodes.iter().map(|n| {
         Quad::new(Value::from("0"), Value::from("has"), n.clone(), Value::from(""))
     }).collect();
 
@@ -58,7 +58,7 @@ fn test_resolver_iterator_not_found_error() {
         Value::from("5")
     ];
 
-    let data:Vec<Quad> = nodes.iter().filter(|n| n != &&Value::from("3")).map(|n| {
+    let data = nodes.iter().filter(|n| n != &&Value::from("3")).map(|n| {
         Quad::new(Value::from("0"), Value::from("has"), n.clone(), Value::from(""))
     }).collect();
 
@@ -82,7 +82,7 @@ fn test_resolver_iterator_contains() {
     let ctx = Context::background();
 
     let test = |nodes: Vec<Value>, subject:Value, contains:bool| {
-        let data:Vec<Quad> = nodes.iter().map(|n| {
+        let data = nodes.iter().map(|n| {
             Quad::new(Value::from("0"), Value::from("has"), n.clone(), Value::from(""))
         }).collect();
 
