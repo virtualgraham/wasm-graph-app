@@ -1,14 +1,14 @@
-use wasm_bindgen::prelude::*;
+// use wasm_bindgen::prelude::*;
 
-use web_sys::console;
+// use web_sys::console;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
 //
 // If you don't want to use `wee_alloc`, you can safely delete this.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// #[cfg(feature = "wee_alloc")]
+// #[global_allocator]
+// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
 // // This is like the `main` function, except for JavaScript.
@@ -28,8 +28,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 pub mod graph;
 pub mod query;
-
-
 
 #[macro_use]
 extern crate serde_derive;

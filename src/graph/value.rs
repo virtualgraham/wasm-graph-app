@@ -5,7 +5,57 @@ use serde_json::value::Number;
 use std::borrow::Cow;
 use std::fmt;
 
-use wasm_bindgen::JsValue;
+// use wasm_bindgen::JsValue;
+
+
+pub enum Values {
+    None,
+    Some(Vec<Value>)
+}
+
+impl Values {
+    pub fn to_vec(self) -> Vec<Value> {
+        match self {
+            Values::None => Vec::new(),
+            Values::Some(v) => v
+        }
+    }
+}
+
+impl From<Option<Value>> for Values {
+    fn from(v: Option<Value>) -> Self {
+        match v {
+            Some(v) => Values::Some(vec![v]),
+            None => Values::None
+        }
+    }
+}
+
+impl From<Value> for Values {
+    fn from(v: Value) -> Self {
+        Values::Some(vec![v])
+    }
+}
+
+impl From<Vec<Value>> for Values {
+    fn from(v: Vec<Value>) -> Self {
+        Values::Some(v)
+    }
+}
+
+impl From<&str> for Values {
+    fn from(v: &str) -> Self {
+        Values::Some(vec![v.into()])
+    }
+}
+
+impl From<String> for Values {
+    fn from(v: String) -> Self {
+        Values::Some(vec![v.into()])
+    }
+}
+
+
 
 #[derive(Debug, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]
@@ -131,31 +181,31 @@ impl<'a> From<Cow<'a, str>> for Value {
     }
 }
 
-impl From<&JsValue> for Value {
+// impl From<&JsValue> for Value {
 
-    fn from(f: &JsValue) -> Self {
-        if f.is_undefined() {
-            return Value::Undefined
-        } 
+//     fn from(f: &JsValue) -> Self {
+//         if f.is_undefined() {
+//             return Value::Undefined
+//         } 
 
-        if f.is_null() {
-            return Value::Null
-        } 
+//         if f.is_null() {
+//             return Value::Null
+//         } 
         
-        if f.is_string() {
-            return match f.as_string() {
-                Some(s) => Value::String(s),
-                None => Value::Undefined
-            }
-        }
+//         if f.is_string() {
+//             return match f.as_string() {
+//                 Some(s) => Value::String(s),
+//                 None => Value::Undefined
+//             }
+//         }
 
-        match f.as_f64() {
-            Some(n) => Value::from(n),
-            None => match f.as_bool() {
-                Some(b) => Value::Bool(b),
-                None => Value::Undefined
-            }
-        }
-    }
+//         match f.as_f64() {
+//             Some(n) => Value::from(n),
+//             None => match f.as_bool() {
+//                 Some(b) => Value::Bool(b),
+//                 None => Value::Undefined
+//             }
+//         }
+//     }
 
-}
+// }

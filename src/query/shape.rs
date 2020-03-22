@@ -581,6 +581,8 @@ pub fn build_iterator(ctx: & Context, qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<R
 
 // buildOut() from query/shape/path.go
 pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, mut via:Rc<RefCell<dyn Shape>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>, r#in: bool) -> Rc<RefCell<dyn Shape>> {
+   println!("new_in_out");
+   
     let start = if r#in { Direction::Subject } else { Direction::Object };
     let goal = if r#in { Direction::Object } else { Direction::Subject };
 

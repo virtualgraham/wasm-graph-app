@@ -67,13 +67,13 @@ fn main() {
 
     let g = simple_graph.g();
 
-    // let r:Vec<HashMap<String, Ref>> = g.v(Some(vec!["<alice>".into()])).all().collect();
+    // let r:Vec<HashMap<String, Ref>> = g.v("<alice>").all().collect();
 
     // let r:Vec<HashMap<String, Ref>> = g.v(None).all().collect();
 
     // let r:Vec<HashMap<String, Ref>> = g.v(None).get_limit(5).collect();
 
-    let r:Vec<HashMap<String, Ref>> = g.v(None).out_values(vec!["<follows>".into()], None).all().collect();
+    let r:Vec<HashMap<String, Ref>> = g.v(None).out("<follows>", None).all().collect();
 
     println!("{:?} {}", r, r.len());
 }

@@ -126,6 +126,7 @@ impl Scanner for FixedNext {
             return false
         }
         self.result = Some(self.values.borrow()[self.ind].clone());
+        println!("self.result {:?}", self.result);
         self.ind += 1;
         true
     }

@@ -187,5 +187,33 @@ impl Via {
     }
 }
 
+impl From<String> for Via {
+    fn from(v: String) -> Self {
+        Via::Values(vec![v.into()])
+    }
+}
 
+impl From<&str> for Via {
+    fn from(v: &str) -> Self {
+        Via::Values(vec![v.into()])
+    }
+}
+
+impl From<Value> for Via {
+    fn from(v: Value) -> Self {
+        Via::Values(vec![v])
+    }
+}
+
+impl From<Vec<Value>> for Via {
+    fn from(v: Vec<Value>) -> Self {
+        Via::Values(v)
+    }
+}
+
+impl From<Path> for Via {
+    fn from(p: Path) -> Self {
+        Via::Path(p)
+    }
+}
 

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use crate::graph::quad::{QuadStore, QuadWriter, IgnoreOptions, Quad};
 use crate::graph::refs::Ref;
 use crate::graph::graphmock;
-use crate::graph::value::Value;
+use crate::graph::value::{Value, Values};
 use crate::graph::iterator;
 use io_context::Context;
 use std::collections::HashMap;
@@ -112,8 +112,7 @@ impl Graph {
         }
     }
 
-    pub fn v(mut self, qv: Option<Vec<Value>>) -> Path {
-        let qv = match qv { Some(v) => v, None => Vec::new() };
+    pub fn v<V: Into<Values>>(mut self, qv: V) -> Path {
         self.path = Some(
             Path::new(
                 self.session.clone(), 
@@ -122,7 +121,7 @@ impl Graph {
                     Some(
                         self.session.borrow().qs.clone()
                     ), 
-                    qv
+                    qv.into().to_vec()
                 )
             )
         );
@@ -231,55 +230,59 @@ impl Path {
     }
 
 
-    fn _in_out_values(self, values: Vec<Value>, tags: Option<Vec<String>>, dir_in: bool) -> Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let via = path::Via::Values(values);
+    // fn _in_out_values(self, values: Vec<Value>, tags: Option<Vec<String>>, dir_in: bool) -> Path {
+    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    //     let via = path::Via::Values(values);
 
-        let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
+    //     let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
         
-        Path::new(self.session, self.finals, np)
-    }
+    //     Path::new(self.session, self.finals, np)
+    // }
 
-    fn _in_out_path(self, path: &Path, tags: Option<Vec<String>>, dir_in: bool) -> Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let via = path::Via::Path(path.path.clone());
+    // fn _in_out_path(self, path: &Path, tags: Option<Vec<String>>, dir_in: bool) -> Path {
+    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    //     let via = path::Via::Path(path.path.clone());
 
-        let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
+    //     let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
         
-        Path::new(self.session, self.finals, np)
-    }
+    //     Path::new(self.session, self.finals, np)
+    // }
 
 
     ///////////////////////////
     // In(values: String[], tags: String[])
     ///////////////////////////
-    pub fn in_values(self, values: Vec<Value>, tags: Option<Vec<String>>) -> Path {
-        self._in_out_values(values, tags, true)
+    pub fn r#in<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
+        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+        let np = self.path.in_with_tags(tags, via.into());
+        Path::new(self.session, self.finals, np)
     }
 
 
-    ///////////////////////////
-    // In(path: Path, tags: String[])
-    ///////////////////////////
-    pub fn in_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-        self._in_out_path(path, tags, true)
-    }
+    // ///////////////////////////
+    // // In(path: Path, tags: String[])
+    // ///////////////////////////
+    // pub fn in_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
+    //     self._in_out_path(path, tags, true)
+    // }
 
 
     ///////////////////////////
     // Out(values: String[], tags: String[])
     ///////////////////////////
-    pub fn out_values(self, values: Vec<Value>, tags: Option<Vec<String>>) -> Path {
-        self._in_out_values(values, tags, false)
+    pub fn out<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
+        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+        let np = self.path.out_with_tags(tags, via.into());
+        Path::new(self.session, self.finals, np)
     }
 
 
-    ///////////////////////////
-    // Out(path: Path, tags: String[])
-    ///////////////////////////
-    pub fn out_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-        self._in_out_path(path, tags, false)
-    }
+    // ///////////////////////////
+    // // Out(path: Path, tags: String[])
+    // ///////////////////////////
+    // pub fn out_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
+    //     self._in_out_path(path, tags, false)
+    // }
 
 
     ///////////////////////////
