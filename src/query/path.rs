@@ -50,76 +50,59 @@ impl Path {
         }   
     }
 
-    pub fn is(self, nodes: Vec<Value>) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::IsMorphism::new(nodes));
-        return np
+    ///////
+
+    pub fn is(&mut self, nodes: Vec<Value>) {
+        self.stack.push(morphism_apply_functions::IsMorphism::new(nodes));
     }
 
-    pub fn in_with_tags(self, tags: Vec<String>, via: Via) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::InMorphism::new(tags, via));
-        return np
+    pub fn in_with_tags(&mut self, tags: Vec<String>, via: Via) {
+        self.stack.push(morphism_apply_functions::InMorphism::new(tags, via));
     }
 
-    pub fn out_with_tags(self, tags: Vec<String>, via: Via) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::OutMorphism::new(tags, via));
-        println!("np.stack.len() {}", np.stack.len());
-        return np
+    pub fn out_with_tags(&mut self, tags: Vec<String>, via: Via)  {
+        self.stack.push(morphism_apply_functions::OutMorphism::new(tags, via));
     }
 
 
-    pub fn both_with_tags(self, tags: Vec<String>, via: Via) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::BothMorphism::new(tags, via));
-        return np
+    pub fn both_with_tags(&mut self, tags: Vec<String>, via: Via)  {
+        self .stack.push(morphism_apply_functions::BothMorphism::new(tags, via));
     }
 
-    pub fn follow(self, path: Path) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::FollowMorphism::new(path));
-        return np
+    pub fn follow(&mut self, path: Path) {
+        self.stack.push(morphism_apply_functions::FollowMorphism::new(path));
     }
 
-    pub fn follow_reverse(self, path: Path) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::FollowMorphism::new(path.reverse()));
-        return np
+    pub fn follow_reverse(&mut self, mut path: Path) {
+        self.stack.push(morphism_apply_functions::FollowMorphism::new(path.reverse()));
     }
 
-    pub fn follow_recursive(self, via: Via, max_depth: i32, tags: Vec<String>) -> Path {
-        let mut np = self.clone();
+    pub fn follow_recursive(&mut self, via: Via, max_depth: i32, tags: Vec<String>) {
         let path = match via {
             Via::Values(v) => Path::start_morphism(v),
             Via::Path(p) => p,
             Via::None => panic!("did not pass a predicate or a Path to FollowRecursive"),
         };
-        np.stack.push(morphism_apply_functions::FollowRecursiveMorphism::new(path, max_depth, tags));
-        return np
+        self.stack.push(morphism_apply_functions::FollowRecursiveMorphism::new(path, max_depth, tags));
     }
 
-    pub fn and(self, path: Path) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::AndMorphism::new(path));
-        return np
+    pub fn and(&mut self, path: Path) {
+        self.stack.push(morphism_apply_functions::AndMorphism::new(path));
     }
     
-    pub fn or(self, path: Path) -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::OrMorphism::new(path));
-        return np
+    pub fn or(&mut self, path: Path) {
+        self.stack.push(morphism_apply_functions::OrMorphism::new(path));
     }
 
 
-    pub fn filters(self, filters: Vec<Rc<dyn ValueFilter>>)  -> Path {
-        let mut np = self.clone();
-        np.stack.push(morphism_apply_functions::FilterMorphism::new(filters));
-        return np
+    pub fn filters(&mut self, filters: Vec<Rc<dyn ValueFilter>>) {
+        self.stack.push(morphism_apply_functions::FilterMorphism::new(filters));
     }
 
+    ///////
+ 
 
-    pub fn reverse(self) -> Path {
+    pub fn reverse(&mut self) -> Path {
         let mut new_path = Path::new(self.qs.clone(), Vec::new());
         let ctx = new_path.base_context.clone();
 

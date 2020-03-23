@@ -36,12 +36,12 @@ pub struct Foo {
 }
 
 impl Foo {
-    pub fn graph(self) -> Graph {
-        return self.g;
+    pub fn graph(&mut self) -> &mut Graph {
+        return &mut self.g;
     }
 
-    pub fn g(self) -> Graph {
-        return self.g;
+    pub fn g(&mut self) -> &mut Graph {
+        return &mut self.g;
     }
 }
 
@@ -85,7 +85,7 @@ impl Session {
 
 
     fn run_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::Chain {
-        iterator::iterate::Chain::new(self.ctx.clone(), it, false, self.limit, true)
+        iterator::iterate::Chain::new(self.ctx.clone(), it, self.qs.clone(), false, self.limit, true)
     }
 
 }
@@ -113,7 +113,7 @@ impl Graph {
         }
     }
 
-    pub fn v<V: Into<Values>>(mut self, qv: V) -> Path {
+    pub fn v<V: Into<Values>>(&mut self, qv: V) -> &mut Path {
         self.path = Some(
             Path::new(
                 self.session.clone(), 
@@ -126,12 +126,12 @@ impl Graph {
                 )
             )
         );
-        return self.path.unwrap();
+        return self.path.as_mut().unwrap();
     }
 
-    pub fn m(mut self) -> Path {
+    pub fn m(&mut self) -> &mut Path {
         self.path = Some(Path::new(self.session.clone(), false, path::Path::start_morphism(Vec::new())));
-        return self.path.unwrap();
+        return self.path.as_mut().unwrap();
     }
 }
 
@@ -225,9 +225,9 @@ impl Path {
     ///////////////////////////
     // Is(nodes: String[])
     ///////////////////////////
-    pub fn is<V: Into<Values>>(self, nodes: V) -> Path {
-        let np = self.path.is(nodes.into().to_vec());
-        Path::new(self.session, self.finals, np)
+    pub fn is<V: Into<Values>>(&mut self, nodes: V) -> &mut Path {
+        self.path.is(nodes.into().to_vec());
+        self
     }
 
 
@@ -253,10 +253,10 @@ impl Path {
     ///////////////////////////
     // In(values: String[], tags: String[])
     ///////////////////////////
-    pub fn r#in<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
+    pub fn r#in<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let np = self.path.in_with_tags(tags, via.into());
-        Path::new(self.session, self.finals, np)
+        self.path.in_with_tags(tags, via.into());
+        self
     }
 
 
@@ -271,10 +271,10 @@ impl Path {
     ///////////////////////////
     // Out(values: String[], tags: String[])
     ///////////////////////////
-    pub fn out<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
+    pub fn out<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let np = self.path.out_with_tags(tags, via.into());
-        Path::new(self.session, self.finals, np)
+        self.path.out_with_tags(tags, via.into());
+        self
     }
 
 
@@ -286,9 +286,10 @@ impl Path {
     // }
 
 
-    pub fn both<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
+    pub fn both<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via.into()))
+        self.path.both_with_tags(tags, via.into());
+        self
     }
 
 
@@ -317,38 +318,42 @@ impl Path {
     ///////////////////////////
     // Follow(path: Path)
     ///////////////////////////
-    pub fn follow(self, ep: &Path) -> Path {
-        return Path::new(self.session, self.finals, self.path.follow(ep.path.clone()))
+    pub fn follow(&mut self, ep: &Path) -> &mut Path {
+        self.path.follow(ep.path.clone());
+        self
     }
 
 
     ///////////////////////////
     // FollowR(path: Path)
     ///////////////////////////
-    pub fn follow_r(self, ep: &Path) -> Path {
-        return Path::new(self.session, self.finals, self.path.follow_reverse(ep.path.clone()))
+    pub fn follow_r(&mut self, ep: &Path) -> &mut Path {
+        self.path.follow_reverse(ep.path.clone());
+        self
     }
 
 
     ///////////////////////////
     // FollowRecursive(path: Path, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_path(self, path: &Path, max_depth: Option<i32>, tags: Option<Vec<String>>) -> Path {
+    pub fn follow_recursive_path(&mut self, path: &Path, max_depth: Option<i32>, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Path(path.path.clone());
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        return Path::new(self.session, self.finals, self.path.follow_recursive(via, max_depth, tags))
+        self.path.follow_recursive(via, max_depth, tags);
+        self
     }
 
 
     ///////////////////////////
     // FollowRecursive(value: String, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_value(self, value: Value, max_depth: Option<i32>, tags: Option<Vec<String>>) -> Path {
+    pub fn follow_recursive_value(&mut self, value: Value, max_depth: Option<i32>, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         let via = path::Via::Values(vec![value]);
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        return Path::new(self.session, self.finals, self.path.follow_recursive(via, max_depth, tags))
+        self.path.follow_recursive(via, max_depth, tags);
+        self
     }
 
 
@@ -356,8 +361,9 @@ impl Path {
     // And(path: Path)
     // Intersect(path: Path)
     ///////////////////////////
-    pub fn intersect(self, path: &Path) -> Path {
-        return Path::new(self.session, self.finals, self.path.and(path.path.clone()))
+    pub fn intersect(&mut self, path: &Path) -> &mut Path {
+        self.path.and(path.path.clone());
+        self
     }
 
 
@@ -365,29 +371,30 @@ impl Path {
     // Or(path: Path)
     // Union(path: Path)
     ///////////////////////////
-    pub fn union(self, path: &Path) -> Path {
-        return Path::new(self.session, self.finals, self.path.or(path.path.clone()))
+    pub fn union(&mut self, path: &Path) -> &mut Path {
+        self.path.or(path.path.clone());
+        self
     }
 
 
     ///////////////////////////
     // Back(tag: String)
     ///////////////////////////
-    pub fn back(self, tag: String) -> Path {
+    pub fn back(&mut self, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Back(tags: String[])
     ///////////////////////////
-    pub fn tag(self, tags: Vec<String>) -> Path {
+    pub fn tag(&mut self, tags: Vec<String>) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // As(tags: String[])
     ///////////////////////////
-    pub fn r#as(self, tags: Vec<String>) -> Path {
+    pub fn r#as(&mut self, tags: Vec<String>) -> &mut Path {
         self
     }
 
@@ -400,7 +407,7 @@ impl Path {
     // *Has(predicate: String, filters: Filter[])
     // *Has(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has(self, predicate: String, object: String) -> Path {
+    pub fn has(&mut self, predicate: String, object: String) -> &mut Path {
         self
     }
 
@@ -413,7 +420,7 @@ impl Path {
     // *HasR(predicate: String, filters: Filter[])
     // *HasR(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has_r(self, predicate: String, object: String) -> Path {
+    pub fn has_r(&mut self, predicate: String, object: String) -> &mut Path {
         self
     }
 
@@ -421,84 +428,84 @@ impl Path {
     ///////////////////////////
     // Save(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save(self, predicate: String, tag: String) -> Path {
+    pub fn save(&mut self, predicate: String, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // SaveR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_r(self, predicate: String, tag: String) -> Path {
+    pub fn save_r(&mut self, predicate: String, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // SaveOpt(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt(self, predicate: String, tag: String) -> Path {
+    pub fn save_opt(&mut self, predicate: String, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // SaveOptR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt_r(self, predicate: String, tag: String) -> Path {
+    pub fn save_opt_r(&mut self, predicate: String, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Except(path: Path)
     ///////////////////////////
-    pub fn except(self, path: &Path) -> Path {
+    pub fn except(&mut self, path: &Path) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Unique()
     ///////////////////////////
-    pub fn unique(self) -> Path {
+    pub fn unique(&mut self) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Difference(path: Path)
     ///////////////////////////
-    pub fn difference(self, path: &Path) -> Path {
+    pub fn difference(&mut self, path: &Path) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Labels()
     ///////////////////////////
-    pub fn labels(self) -> Path {
+    pub fn labels(&mut self) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // InPredicates(tag:String)
     ///////////////////////////
-    pub fn in_predicates(self, tag: String) -> Path {
+    pub fn in_predicates(&mut self, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // OutPredicates()
     ///////////////////////////
-    pub fn out_predicates(self) -> Path {
+    pub fn out_predicates(&mut self) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // SaveInPredicates(tag:String)
     ///////////////////////////
-    pub fn save_in_predicates(self, tag: String) -> Path {
+    pub fn save_in_predicates(&mut self, tag: String) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // SaveOutPredicates(tag:String)
     ///////////////////////////
-    pub fn save_out_predicates(self, tag: String) -> Path {
+    pub fn save_out_predicates(&mut self, tag: String) -> &mut Path {
         self
     }
 
@@ -506,14 +513,14 @@ impl Path {
     ///////////////////////////
     // LabelContext(values: String[], tags: String[])
     ///////////////////////////
-    pub fn label_context_values(self, values: Vec<String>, tags: Vec<String>) -> Path {
+    pub fn label_context_values(&mut self, values: Vec<String>, tags: Vec<String>) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // LabelContext(path: Path, tags: String[])
     ///////////////////////////
-    pub fn label_context_path(self, path: &Path, tags: Vec<String>) -> Path {
+    pub fn label_context_path(&mut self, path: &Path, tags: Vec<String>) -> &mut Path {
         self
     }
 
@@ -521,28 +528,29 @@ impl Path {
     ///////////////////////////
     // Filter(filter: Filter)
     ///////////////////////////
-    pub fn filter<F: Into<ValueFilters>>(self, filters: F) -> Path {
-        return Path::new(self.session, self.finals, self.path.filters(filters.into().filters))
+    pub fn filter<F: Into<ValueFilters>>(&mut self, filters: F) -> &mut Path {
+        self.path.filters(filters.into().filters);
+        self
     }
 
     ///////////////////////////
     // Limit(limit: Number)
     ///////////////////////////
-    pub fn limit(self, limit: i32) -> Path {
+    pub fn limit(&mut self, limit: i32) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Skip(offset: Number)
     ///////////////////////////
-    pub fn skip(self, offset: i32) -> Path {
+    pub fn skip(&mut self, offset: i32) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // Order()
     ///////////////////////////
-    pub fn order(self) -> Path {
+    pub fn order(&mut self) -> &mut Path {
         self
     }
 

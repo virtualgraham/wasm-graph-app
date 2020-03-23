@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use io_context::Context;
 use super::{Shape, Scanner};
 use super::refs::Ref;
+use super::super::value::Value;
 use super::super::quad::QuadStore;
 use std::collections::HashMap;
 
@@ -11,7 +12,7 @@ pub struct Chain {
     s: Rc<RefCell<dyn Shape>>,
     it: Option<Rc<RefCell<dyn Scanner>>>,
     paths: bool,
-    // qs: Option<Rc<RefCell<dyn QuadStore>>>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     optimize: bool, 
     limit: i64,
     n: i64
@@ -19,16 +20,38 @@ pub struct Chain {
 
 
 impl Chain {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, limit: i64, paths: bool) -> Chain {
+    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, qs: Rc<RefCell<dyn QuadStore>>, optimize: bool, limit: i64, paths: bool) -> Chain {
         Chain {
             ctx,
             s: it,
             it: None,
             paths,
+            qs,
             optimize,
             limit,
             n: 0
         }
+    }
+
+    fn quad_value_to_native() {
+
+    }
+
+    fn tags_to_value_map(&self, m: &HashMap<String, Ref>) -> Option<HashMap<String, Value>> {
+        let mut output_map = HashMap::new();
+
+        for (key, value) in m {
+            match self.qs.borrow().name_of(value) {
+                Some(v) => { output_map.insert(key.clone(), v); },
+                None => {}
+            };
+        }
+        
+        if output_map.is_empty() {
+            return None
+        }
+
+        return Some(output_map)
     }
 
     pub fn start(&mut self) {
@@ -65,25 +88,25 @@ impl Chain {
         return ok
     }
 
-    fn do_val(&mut self) -> Option<HashMap<String, Ref>> {
+    fn do_val(&mut self) -> Option<HashMap<String, Value>> {
 
         if self.next_val() {
             self.paths = true;
             let mut tags = HashMap::new();
             self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-            return Some(tags)
+            return self.tags_to_value_map(&tags)
         } else {
             self.end();
             return None
         }
     }
 
-    fn do_path(&mut self)  -> Option<HashMap<String, Ref>> {
+    fn do_path(&mut self)  -> Option<HashMap<String, Value>> {
 
         if self.next_path() {
             let mut tags = HashMap::new();
             self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-            return Some(tags)
+            return self.tags_to_value_map(&tags)
         } else {
             self.paths = false;
             return self.do_val()
@@ -92,9 +115,9 @@ impl Chain {
 }
 
 impl Iterator for Chain {
-    type Item = HashMap<String, Ref>;
+    type Item = HashMap<String, Value>;
 
-    fn next(&mut self) -> Option<HashMap<String, Ref>> {
+    fn next(&mut self) -> Option<HashMap<String, Value>> {
 
         if !self.it.is_some() {
             self.start();

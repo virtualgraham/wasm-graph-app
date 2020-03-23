@@ -7,12 +7,15 @@ use graph::quad::Quad;
 #[macro_use]
 extern crate serde_derive;
 
-use graph::refs::Ref;
+#[macro_use] 
+extern crate maplit;
+
+use graph::value::Value;
 use std::collections::HashMap;
 
 
 fn main() {
-    let simple_graph = gizmo::new_memory_graph();
+    let mut simple_graph = gizmo::new_memory_graph();
 
     {
         let session = simple_graph.s.borrow_mut();
@@ -82,7 +85,9 @@ fn main() {
 
     //let r:Vec<HashMap<String, Ref>> = g.v("<fred>").both("<follows>", None).all().collect();
 
-    let r:Vec<HashMap<String, Ref>> = g.v("<bob>").r#in("<follows>", None).filter(gizmo::regex("ar?li.*e")).all().collect();
+    let r:Vec<HashMap<String, Value>> = g.v("<bob>").r#in("<follows>", None).filter(gizmo::regex("ar?li.*e")).all().collect();
 
-    println!("{:?} {}", r, r.len());
+    let f:Vec<HashMap<String, Value>> = vec![hashmap!{"id".into() => "<charlie>".into()}, hashmap!{"id".into() => "<alice>".into()}];
+
+    println!("{:?} {:?} {} {}", r, f, r.len(), r == f);
 }
