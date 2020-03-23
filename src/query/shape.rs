@@ -8,7 +8,7 @@ use super::super::graph::value::Value;
 use super::super::graph::linksto::LinksTo;
 use super::super::graph::refs::{Ref, Content};
 use super::super::graph::quad::{QuadStore, Direction};
-
+use regex::Regex;
 
 pub enum ShapeType<'a> {
     Lookup(&'a mut Lookup),
@@ -23,7 +23,8 @@ pub enum ShapeType<'a> {
     Save,
     Union,
     Recursive,
-    IteratorShape
+    IteratorShape,
+    Filter(&'a mut Filter)
 }
 
 
@@ -64,8 +65,9 @@ impl Optimizer for ResolveValues {
     }
 }
 
-
 ///////////////////////////////////////////////
+
+
 
 
 pub struct Lookup (pub Vec<Value>);
@@ -97,6 +99,7 @@ impl Lookup {
 
 impl Shape for Lookup {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        println!("Lookup build_iterator()"); 
         let f = self.resolve(qs.clone());
         if f.is_none() {
             return iterator::Null::new();
@@ -323,11 +326,15 @@ pub struct QuadFilter {
 
 impl Shape for QuadFilter {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        println!("Quad Filter build_iterator()");
+
         if self.values.is_none() {
+            println!("Quad Filter self.values.is_none()");
             return iterator::Null::new() 
         }
 
         if let Some(v) = one(self.values.clone().unwrap()) {
+            println!("Quad Filter Some(v) = one(self.values.clone().unwrap())");
             return qs.borrow().quad_iterator(&self.dir, &v)
         }
 
@@ -336,6 +343,8 @@ impl Shape for QuadFilter {
         }
 
         let sub = self.values.clone().unwrap().borrow().build_iterator(qs.clone());
+
+        println!("Quad Filter LinksTo::new(qs.clone(), sub, self.dir.clone())");
 
         LinksTo::new(qs.clone(), sub, self.dir.clone())
     }
@@ -364,6 +373,8 @@ impl Quads {
 
 impl Shape for Quads {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        println!("Quads build_iterator() {:?} self.0.len()", self.0.len());
+
         if self.0.is_empty() {
             return iterator::Null::new() 
         }
@@ -429,8 +440,21 @@ pub struct Union(pub Vec<Rc<RefCell<dyn Shape>>>);
 
 impl Shape for Union {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
-        // TODO: Implement
-        return iterator::Null::new()
+        if self.0.is_empty() {
+            return iterator::Null::new() 
+        }
+
+        let mut sub = Vec::new();
+        
+        for c in &self.0 {
+            sub.push(c.borrow().build_iterator(qs.clone()));
+        }
+        
+        if sub.len() == 1 {
+            return sub[0].clone()
+        }
+
+        return iterator::or::Or::new(sub)
     }
 
     fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
@@ -531,6 +555,164 @@ impl Shape for IntersectOpt {
 }
 
 
+///////////////////////////////////////////////
+
+
+pub trait ValueFilter {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, shape: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>>;
+}
+
+pub struct Regexp {
+    re: Regex
+}
+
+impl Regexp {
+    pub fn new(pattern: String) -> Regexp {
+        let re = Regex::new(&pattern).unwrap();
+        Regexp {
+            re
+        }
+    }
+}
+
+impl ValueFilter for Regexp {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, it: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        iterator::value_filter::RegexValueFilter::new(it, qs, self.re.clone())
+    }
+}
+
+
+pub struct Wildcard {
+    pattern: String
+}
+
+fn quote_meta(s: &String) -> String {
+    let special = "\\.+*?()|[]{}^$";
+    let v:Vec<String> = s.chars().map(|x| {
+        if special.contains(x) {
+            return format!("\\{}", x)
+        } else {
+            return x.to_string()
+        }
+    }).collect();
+    return v.join("")
+}
+
+impl Wildcard {
+    pub fn new(pattern: String) -> Wildcard {
+        Wildcard {
+            pattern
+        }
+    }
+
+    fn regexp(&self) -> String {
+        let any = '%';
+
+        let mut pattern = quote_meta(&self.pattern);
+        
+        if !pattern.starts_with(any) {
+            pattern = format!("^{}", pattern);
+        } else {
+            pattern = pattern.trim_start_matches(any).to_string();
+        }
+        
+        if !pattern.ends_with(any) {
+            pattern = format!("{}$", pattern);
+        } else {
+            pattern = pattern.trim_end_matches(any).to_string();
+        }
+
+        pattern = pattern.replace(any, ".*");
+        pattern = pattern.replace("\\?", ".");
+
+        return pattern
+    }
+}
+
+impl ValueFilter for Wildcard {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, it: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        if self.pattern.is_empty() {
+            return iterator::Null::new()
+        } else if self.pattern.trim_matches('%').is_empty() {
+            return it
+        }
+
+        let re = Regex::new(&self.regexp()).unwrap();
+
+        iterator::value_filter::RegexValueFilter::new(it, qs, re)
+    }
+}
+
+
+pub struct Comparison {
+    op: iterator::value_filter::Operator,
+    val: Value
+}
+
+impl Comparison {
+    pub fn new(op: iterator::value_filter::Operator, val: Value) -> Comparison {
+        Comparison {
+            op,
+            val
+        }
+    }
+}
+
+impl ValueFilter for Comparison {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, it: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        iterator::value_filter::ComparisonValueFilter::new(it, self.op.clone(), self.val.clone(), qs)
+    }
+}
+
+
+
+pub struct Filter {
+    from: Rc<RefCell<dyn Shape>>,
+    filters: Vec<Rc<dyn ValueFilter>>
+}
+
+impl Filter {
+    pub fn new(nodes: Rc<RefCell<dyn Shape>>, filters: Vec<Rc<dyn ValueFilter>>) -> Rc<RefCell<dyn Shape>> {
+        if filters.is_empty() {
+            return nodes
+        }
+        if let ShapeType::Filter(s) = nodes.borrow_mut().shape_type() {
+            let mut f = s.filters.clone();
+            f.extend(filters);
+
+            return Rc::new(RefCell::new(Filter {
+                from: s.from.clone(),
+                filters: f
+            }))
+        }
+        return Rc::new(RefCell::new(Filter {
+            from: nodes,
+            filters
+        }))
+    }
+}
+
+impl Shape for Filter {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        let mut it = self.from.borrow().build_iterator(qs.clone());
+        for f in &self.filters {
+            it = f.build_iterator(qs.clone(), it)
+        }
+        return it
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        return None
+    }
+
+    fn shape_type(&mut self) -> ShapeType {
+        ShapeType::Filter(self)
+    }
+}
+
+///////////////////////////////////////////////
+
+
 
 pub fn interset_optional(main: Rc<RefCell<dyn Shape>>, opt: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>  {
     let mut optional:Vec<Rc<RefCell<dyn Shape>>> = match opt.borrow_mut().shape_type() {
@@ -583,8 +765,8 @@ pub fn build_iterator(ctx: & Context, qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<R
 pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, mut via:Rc<RefCell<dyn Shape>>, labels:Option<Rc<RefCell<dyn Shape>>>, tags:Vec<String>, r#in: bool) -> Rc<RefCell<dyn Shape>> {
    println!("new_in_out");
    
-    let start = if r#in { Direction::Subject } else { Direction::Object };
-    let goal = if r#in { Direction::Object } else { Direction::Subject };
+    let start = if r#in { Direction::Object } else { Direction::Subject };
+    let goal = if r#in { Direction::Subject } else { Direction::Object };
 
     if !tags.is_empty() {
         via = Rc::new(RefCell::new(Save {
@@ -595,19 +777,27 @@ pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, mut via:Rc<RefCell<dyn Shape>>, l
 
     let quads = Rc::new(RefCell::new(Quads(Vec::new())));
 
-    if let ShapeType::AllNodes = from.borrow_mut().shape_type() {
-        quads.borrow_mut().0.push(QuadFilter {
-            dir: start,
-            values: Some(from.clone())
-        });
-    }
+    // if from.shape_type != AllNodes
+    match from.borrow_mut().shape_type() {
+        ShapeType::AllNodes => {},
+        _ => {
+            quads.borrow_mut().0.push(QuadFilter {
+                dir: start,
+                values: Some(from.clone())
+            });
+        }
+    };
 
-    if let ShapeType::AllNodes = via.borrow_mut().shape_type() {
-        quads.borrow_mut().0.push(QuadFilter {
-            dir: Direction::Predicate,
-            values: Some(via.clone())
-        });
-    }
+    // if via.shape_type != AllNodes
+    match via.borrow_mut().shape_type() {
+        ShapeType::AllNodes => {},
+        _ => {
+            quads.borrow_mut().0.push(QuadFilter {
+                dir: Direction::Predicate,
+                values: Some(via.clone())
+            });
+        }
+    };
 
     if labels.is_some() {
         if let ShapeType::AllNodes = labels.as_ref().unwrap().borrow_mut().shape_type() {

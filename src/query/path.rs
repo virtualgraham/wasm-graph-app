@@ -2,7 +2,7 @@ use crate::graph::value::Value;
 use crate::graph::iterator;
 use crate::graph::quad::{Direction, QuadStore};
 //use crate::graph::iterator::Shape;
-use crate::query::shape::{Shape, AllNodes, Lookup, IteratorShape, build_iterator};
+use crate::query::shape::{Shape, AllNodes, Lookup, IteratorShape, build_iterator, ValueFilter};
 use std::rc::Rc;
 use std::cell::RefCell;
 use super::morphism_apply_functions;
@@ -65,6 +65,7 @@ impl Path {
     pub fn out_with_tags(self, tags: Vec<String>, via: Via) -> Path {
         let mut np = self.clone();
         np.stack.push(morphism_apply_functions::OutMorphism::new(tags, via));
+        println!("np.stack.len() {}", np.stack.len());
         return np
     }
 
@@ -111,6 +112,12 @@ impl Path {
     }
 
 
+    pub fn filters(self, filters: Vec<Rc<dyn ValueFilter>>)  -> Path {
+        let mut np = self.clone();
+        np.stack.push(morphism_apply_functions::FilterMorphism::new(filters));
+        return np
+    }
+
 
     pub fn reverse(self) -> Path {
         let mut new_path = Path::new(self.qs.clone(), Vec::new());
@@ -149,6 +156,8 @@ impl Path {
     }
 }
 
+
+
 pub struct MorphismForPath {
     path: Path,
     qs: Rc<RefCell<dyn QuadStore>>
@@ -186,6 +195,16 @@ impl Via {
         };
     }
 }
+
+impl From<Option<Value>> for Via {
+    fn from(v: Option<Value>) -> Self {
+        match v {
+            Some(v) => Via::Values(vec![v]),
+            None => Via::None
+        }
+    }
+}
+
 
 impl From<String> for Via {
     fn from(v: String) -> Self {

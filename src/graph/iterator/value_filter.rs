@@ -6,15 +6,155 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use io_context::Context;
 use std::fmt;
+use super::super::quad::QuadStore;
+use serde_json::value::Number;
+use regex::Regex;
+
+
+
+
+pub struct RegexValueFilter {
+    re: Regex
+}
+
+impl RegexValueFilter {
+    pub fn new(sub: Rc<RefCell<dyn Shape>>, qs: Rc<RefCell<dyn QuadStore>>, re: Regex) -> Rc<RefCell<ValueFilter>> {
+        ValueFilter::new(
+            qs, 
+            sub, 
+            Rc::new(RegexValueFilter {
+                re
+            })
+        )
+    }
+}
+
+impl ValueFilterFunction for RegexValueFilter {
+
+    fn filter(&self, qval: Value) -> Result<bool, String> {
+        match qval {
+            Value::String(s) => {
+                Ok(self.re.is_match(&s))
+            },
+            _ => { return Ok(false) }
+        }
+    }
+
+}
+
+
+
+#[derive(Clone)]
+pub enum Operator {
+    LT,
+    LTE,
+    GT,
+    GTE
+}
+
+
+
+pub struct ComparisonValueFilter {
+    op:Operator,
+    val: Value, 
+}
+
+impl ComparisonValueFilter {
+    pub fn new(sub: Rc<RefCell<dyn Shape>>, op:Operator, val: Value, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<ValueFilter>> {
+        ValueFilter::new(
+            qs, 
+            sub, 
+            Rc::new(ComparisonValueFilter {
+                op,
+                val
+            })
+        )
+    }
+}
+
+impl ValueFilterFunction for ComparisonValueFilter {
+    fn filter(&self, qval: Value) -> Result<bool, String> {
+        match &self.val {
+            Value::String(a) => {
+                if let Value::String(b) = qval {
+                    return Ok(run_str_op(a, &self.op, &b))
+                } else {
+                    return Ok(false)
+                }
+            },
+            Value::Number(a) => {
+                if let Value::Number(b) = qval {
+                    return Ok(run_number_op(a, &self.op, &b))
+                } else {
+                    return Ok(false)
+                }
+            },
+            _ => return Ok(run_str_op(&self.val.to_string(), &self.op, &qval.to_string()))
+        }
+    }
+}
+
+
+fn run_str_op(a: &String, op:&Operator, b:&String) -> bool {
+    return match op {
+        Operator::LT => a < b,
+        Operator::GT => a > b,
+        Operator::LTE => a <= b,
+        Operator::GTE => a >= b,
+    }
+}
+
+fn run_number_op(a: &Number, op:&Operator, b: &Number) -> bool {
+    if a.is_f64() {
+
+        if !b.is_f64() { return false }
+
+        return match op {
+            Operator::LT => a.as_f64() < b.as_f64(),
+            Operator::GT => a.as_f64() > b.as_f64(),
+            Operator::LTE => a.as_f64() <= b.as_f64(),
+            Operator::GTE => a.as_f64() >= b.as_f64(),
+        }
+
+    } else if a.is_i64() {
+
+        if !b.is_i64() { return false }
+
+        return match op {
+            Operator::LT => a.as_i64() < b.as_i64(),
+            Operator::GT => a.as_i64() > b.as_i64(),
+            Operator::LTE => a.as_i64() <= b.as_i64(),
+            Operator::GTE => a.as_i64() >= b.as_i64(),
+        }
+
+    } else if a.is_u64() {
+
+        if !b.is_u64() { return false }
+
+        return match op {
+            Operator::LT => a.as_u64() < b.as_u64(),
+            Operator::GT => a.as_u64() > b.as_u64(),
+            Operator::LTE => a.as_u64() <= b.as_u64(),
+            Operator::GTE => a.as_u64() >= b.as_u64(),
+        }
+
+    }
+
+    return false
+}
+
+pub trait ValueFilterFunction {
+    fn filter(&self, v: Value) -> Result<bool, String>;
+}
 
 pub struct ValueFilter {
     sub: Rc<RefCell<dyn Shape>>,
-    filter: fn(Value) -> Result<bool, String>,
-    qs: Rc<dyn refs::Namer>
+    filter: Rc<dyn ValueFilterFunction>,
+    qs: Rc<RefCell<dyn QuadStore>>
 }
 
 impl ValueFilter {
-    pub fn new(qs: Rc<dyn refs::Namer>, sub: Rc<RefCell<dyn Shape>>, filter: fn(Value) -> Result<bool, String>) -> Rc<RefCell<ValueFilter>> {
+    pub fn new(qs: Rc<RefCell<dyn QuadStore>>, sub: Rc<RefCell<dyn Shape>>, filter: Rc<dyn ValueFilterFunction>) -> Rc<RefCell<ValueFilter>> {
         Rc::new(RefCell::new( ValueFilter {
             sub,
             filter, 
@@ -33,11 +173,11 @@ impl fmt::Display for ValueFilter {
 impl Shape for ValueFilter {
 
     fn iterate(&self) -> Rc<RefCell<dyn Scanner>> {
-        ValueFilterNext::new(self.qs.clone(), self.sub.borrow().iterate(), self.filter)
+        ValueFilterNext::new(self.qs.clone(), self.sub.borrow().iterate(), self.filter.clone())
     }
 
     fn lookup(&self) -> Rc<RefCell<dyn Index>> {
-        ValueFilterContains::new(self.qs.clone(), self.sub.borrow().lookup(), self.filter)
+        ValueFilterContains::new(self.qs.clone(), self.sub.borrow().lookup(), self.filter.clone())
     }
 
     fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
@@ -68,14 +208,14 @@ impl Shape for ValueFilter {
 
 struct ValueFilterNext {
     sub: Rc<RefCell<dyn Scanner>>,
-    filter: fn(Value) -> Result<bool, String>,
-    qs: Rc<dyn refs::Namer>,
+    filter: Rc<dyn ValueFilterFunction>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     result: Option<refs::Ref>,
     err: Option<String>
 }
 
 impl ValueFilterNext {
-    fn new(qs: Rc<dyn refs::Namer>, sub: Rc<RefCell<dyn Scanner>>, filter: fn(Value) -> Result<bool, String>) -> Rc<RefCell<ValueFilterNext>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, sub: Rc<RefCell<dyn Scanner>>, filter: Rc<dyn ValueFilterFunction>) -> Rc<RefCell<ValueFilterNext>> {
        Rc::new(RefCell::new( ValueFilterNext {
            sub,
            filter,
@@ -86,12 +226,12 @@ impl ValueFilterNext {
     }
 
     fn do_filter(&mut self, val: &refs::Ref) -> bool {
-        let qval = self.qs.name_of(val);
+        let qval = self.qs.borrow().name_of(val);
         if qval.is_none() {
             self.err = Some("no name for val".to_string());
             return false
         }
-        let res = (self.filter)(qval.unwrap());
+        let res = self.filter.filter(qval.unwrap());
         match res {
             Result::Ok(r) => r,
             Result::Err(e) => {
@@ -148,14 +288,14 @@ impl Scanner for ValueFilterNext {
 
 struct ValueFilterContains {
     sub: Rc<RefCell<dyn Index>>,
-    filter: fn(Value) -> Result<bool, String>,
-    qs: Rc<dyn refs::Namer>,
+    filter: Rc<dyn ValueFilterFunction>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     result: Option<refs::Ref>,
     err: Option<String>
 }
 
 impl ValueFilterContains {
-    fn new(qs: Rc<dyn refs::Namer>, sub: Rc<RefCell<dyn Index>>, filter: fn(Value) -> Result<bool, String>) -> Rc<RefCell<ValueFilterContains>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, sub: Rc<RefCell<dyn Index>>, filter: Rc<dyn ValueFilterFunction>) -> Rc<RefCell<ValueFilterContains>> {
         Rc::new(RefCell::new( ValueFilterContains {
             sub, 
             filter,
@@ -166,11 +306,11 @@ impl ValueFilterContains {
     }
 
     fn do_filter(&self, val: &refs::Ref) -> bool {
-        let qval = self.qs.name_of(val);
+        let qval = self.qs.borrow().name_of(val);
         if qval.is_none() {
             return false
         }
-        let res = (self.filter)(qval.unwrap());
+        let res = self.filter.filter(qval.unwrap());
         match res {
             Result::Ok(r) => r,
             Result::Err(_) => false

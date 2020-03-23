@@ -1,5 +1,6 @@
 
 use super::path;
+use super::shape;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::graph::quad::{QuadStore, QuadWriter, IgnoreOptions, Quad};
@@ -224,8 +225,8 @@ impl Path {
     ///////////////////////////
     // Is(nodes: String[])
     ///////////////////////////
-    pub fn is(self, nodes: Vec<Value>) -> Path {
-        let np = self.path.is(nodes);
+    pub fn is<V: Into<Values>>(self, nodes: V) -> Path {
+        let np = self.path.is(nodes.into().to_vec());
         Path::new(self.session, self.finals, np)
     }
 
@@ -285,26 +286,32 @@ impl Path {
     // }
 
 
-    ///////////////////////////
-    // Both(values: String[], tags: String[])
-    ///////////////////////////
-    pub fn both_values(self, values: Vec<Value>, tags: Option<Vec<String>>) -> Path {
+    pub fn both<V: Into<path::Via>>(self, via: V, tags: Option<Vec<String>>) -> Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let via = path::Via::Values(values);
-        
-        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
+        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via.into()))
     }
 
 
-    ///////////////////////////
-    // Both(path: Path, tags: String[])
-    ///////////////////////////
-    pub fn both_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        let via = path::Via::Path(path.path.clone());
+    // ///////////////////////////
+    // // Both(values: String[], tags: String[])
+    // ///////////////////////////
+    // pub fn both_values(self, values: Vec<Value>, tags: Option<Vec<String>>) -> Path {
+    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    //     let via = path::Via::Values(values);
         
-        Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
-    }
+    //     Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
+    // }
+
+
+    // ///////////////////////////
+    // // Both(path: Path, tags: String[])
+    // ///////////////////////////
+    // pub fn both_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
+    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    //     let via = path::Via::Path(path.path.clone());
+        
+    //     Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
+    // }
 
 
     ///////////////////////////
@@ -514,8 +521,8 @@ impl Path {
     ///////////////////////////
     // Filter(filter: Filter)
     ///////////////////////////
-    pub fn filter(self) -> Path {
-        self
+    pub fn filter<F: Into<ValueFilters>>(self, filters: F) -> Path {
+        return Path::new(self.session, self.finals, self.path.filters(filters.into().filters))
     }
 
     ///////////////////////////
@@ -544,3 +551,48 @@ impl Path {
 
 
 
+pub struct ValueFilters {
+    filters: Vec<Rc<dyn shape::ValueFilter>>
+}
+
+impl From<Rc<dyn shape::ValueFilter>> for ValueFilters {
+    fn from(f: Rc<dyn shape::ValueFilter>) -> ValueFilters {
+        ValueFilters {
+            filters: vec![f]
+        }
+    }
+}
+
+impl From<Vec<Rc<dyn shape::ValueFilter>>> for ValueFilters {
+    fn from(f: Vec<Rc<dyn shape::ValueFilter>>) -> ValueFilters {
+        ValueFilters {
+            filters: f
+        }
+    }
+}
+
+
+
+pub fn lt<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Comparison::new(iterator::value_filter::Operator::LT, v.into()))
+}
+
+pub fn lte<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Comparison::new(iterator::value_filter::Operator::LTE, v.into()))
+}
+
+pub fn gt<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Comparison::new(iterator::value_filter::Operator::GT, v.into()))
+}
+
+pub fn gte<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Comparison::new(iterator::value_filter::Operator::GTE, v.into()))
+}
+
+pub fn regex<S: Into<String>>(pattern: S) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Regexp::new(pattern.into()))
+}
+
+pub fn like<S: Into<String>>(pattern: S) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Wildcard::new(pattern.into()))
+}

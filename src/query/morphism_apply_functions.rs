@@ -3,7 +3,7 @@ use crate::graph::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 use super::path::{Morphism, PathContext};
-use crate::query::shape::{Shape, ShapeType, Lookup, Union, Null, Intersect, new_in_out};
+use crate::query::shape::{Shape, ShapeType, Lookup, Union, Null, Intersect, new_in_out, ValueFilter, Filter};
 use crate::query::path::{Via, Path};
 use crate::graph::quad::{QuadStore};
 
@@ -39,12 +39,14 @@ impl Morphism for IsMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("IsMorphism apply() {:?}", self.nodes);
         if self.nodes.is_empty() {
             return (shape, None)
         }
         let s = Lookup::new(self.nodes.clone());
         if let ShapeType::AllNodes = shape.borrow_mut().shape_type() {
-
+            println!("IsMorphism AllNodes Shape type");
+            return (s, None)
         }
         return (join(vec![s, shape]), None)
     }
@@ -72,6 +74,7 @@ impl Morphism for InMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("InMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), true), None)
     }
 }
@@ -98,6 +101,7 @@ impl Morphism for OutMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("OutMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), false), None)
     }
 }
@@ -124,6 +128,7 @@ impl Morphism for BothMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("BothMorphism apply()");
         let via = self.via.as_shape();
         return (Rc::new(RefCell::new(Union(vec![
             new_in_out(shape.clone(), via.clone(), ctx.label_set.clone(), self.tags.clone(), true),
@@ -152,6 +157,7 @@ impl Morphism for FollowMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("FollowMorphism apply()");
         (self.path.clone().shape_from(shape), None)
     }
 }
@@ -181,6 +187,7 @@ impl Morphism for FollowRecursiveMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("FollowRecursiveMorphism apply()");
         (self.path.clone().shape_from(shape), None)
     }
 }
@@ -205,6 +212,7 @@ impl Morphism for AndMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("AndMorphism apply()");
         (join(vec![shape, self.path.clone().shape()]), None)
     }
 }
@@ -229,7 +237,34 @@ impl Morphism for OrMorphism {
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("OrMorphism apply()");
        (Rc::new(RefCell::new(Union(vec![shape, self.path.clone().shape()]))), None)
+    }
+}
+
+
+//////////////////////////////////////////////////////////
+
+pub struct FilterMorphism {
+    filters: Vec<Rc<dyn ValueFilter>>
+}
+
+impl FilterMorphism {
+    pub fn new(filters: Vec<Rc<dyn ValueFilter>>) -> Rc<dyn Morphism> {
+        Rc::new(FilterMorphism {
+            filters
+        })
+    }
+}
+
+impl Morphism for FilterMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (FilterMorphism::new(self.filters.clone()), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("FilterMorphism apply()");
+        (Filter::new(shape, self.filters.clone()), None)
     }
 }
 

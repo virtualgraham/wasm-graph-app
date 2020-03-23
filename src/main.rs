@@ -10,6 +10,7 @@ extern crate serde_derive;
 use graph::refs::Ref;
 use std::collections::HashMap;
 
+
 fn main() {
     let simple_graph = gizmo::new_memory_graph();
 
@@ -73,7 +74,15 @@ fn main() {
 
     // let r:Vec<HashMap<String, Ref>> = g.v(None).get_limit(5).collect();
 
-    let r:Vec<HashMap<String, Ref>> = g.v(None).out("<follows>", None).all().collect();
+    // let r:Vec<HashMap<String, Ref>> = g.v("<alice>").out("<follows>", None).all().collect();
+    
+    // let r:Vec<HashMap<String, Ref>> = g.v("<bob>").out(None, None).all().collect();
+
+    //let r:Vec<HashMap<String, Ref>> = g.v("<bob>").r#in("<follows>", None).all().collect();
+
+    //let r:Vec<HashMap<String, Ref>> = g.v("<fred>").both("<follows>", None).all().collect();
+
+    let r:Vec<HashMap<String, Ref>> = g.v("<bob>").r#in("<follows>", None).filter(gizmo::regex("ar?li.*e")).all().collect();
 
     println!("{:?} {}", r, r.len());
 }
