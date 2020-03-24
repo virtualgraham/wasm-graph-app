@@ -14,16 +14,18 @@ use regex::Regex;
 
 
 pub struct RegexValueFilter {
-    re: Regex
+    re: Regex,
+    iri: bool
 }
 
 impl RegexValueFilter {
-    pub fn new(sub: Rc<RefCell<dyn Shape>>, qs: Rc<RefCell<dyn QuadStore>>, re: Regex) -> Rc<RefCell<ValueFilter>> {
+    pub fn new(sub: Rc<RefCell<dyn Shape>>, qs: Rc<RefCell<dyn QuadStore>>, re: Regex, iri: bool) -> Rc<RefCell<ValueFilter>> {
         ValueFilter::new(
             qs, 
             sub, 
             Rc::new(RegexValueFilter {
-                re
+                re,
+                iri
             })
         )
     }
@@ -36,6 +38,13 @@ impl ValueFilterFunction for RegexValueFilter {
             Value::String(s) => {
                 Ok(self.re.is_match(&s))
             },
+            Value::IRI(s) => {
+                if self.iri {
+                    Ok(self.re.is_match(&s))
+                } else {
+                    return Ok(false)
+                }
+            },
             _ => { return Ok(false) }
         }
     }
@@ -44,7 +53,7 @@ impl ValueFilterFunction for RegexValueFilter {
 
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operator {
     LT,
     LTE,
@@ -77,14 +86,21 @@ impl ValueFilterFunction for ComparisonValueFilter {
         match &self.val {
             Value::String(a) => {
                 if let Value::String(b) = qval {
-                    return Ok(run_str_op(a, &self.op, &b))
+                    return Ok(run_str_op(&b, &self.op, a))
+                } else {
+                    return Ok(false)
+                }
+            },
+            Value::IRI(a) => {
+                if let Value::IRI(b) = qval {
+                    return Ok(run_str_op(&b, &self.op, a))
                 } else {
                     return Ok(false)
                 }
             },
             Value::Number(a) => {
                 if let Value::Number(b) = qval {
-                    return Ok(run_number_op(a, &self.op, &b))
+                    return Ok(run_number_op(&b, &self.op, a))
                 } else {
                     return Ok(false)
                 }
@@ -96,6 +112,7 @@ impl ValueFilterFunction for ComparisonValueFilter {
 
 
 fn run_str_op(a: &String, op:&Operator, b:&String) -> bool {
+    println!("{} {:?} {} {} {}", a, op, b, a < b, a > b);
     return match op {
         Operator::LT => a < b,
         Operator::GT => a > b,

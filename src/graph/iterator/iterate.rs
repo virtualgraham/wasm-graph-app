@@ -3,57 +3,20 @@ use std::cell::RefCell;
 use io_context::Context;
 use super::{Shape, Scanner};
 use super::refs::Ref;
-use super::super::value::Value;
-use super::super::quad::QuadStore;
 use std::collections::HashMap;
 
-pub struct Chain {
+
+pub struct BaseIterator {
     ctx: Rc<RefCell<Context>>,
     s: Rc<RefCell<dyn Shape>>,
     it: Option<Rc<RefCell<dyn Scanner>>>,
     paths: bool,
-    qs: Rc<RefCell<dyn QuadStore>>,
     optimize: bool, 
     limit: i64,
     n: i64
 }
 
-
-impl Chain {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, qs: Rc<RefCell<dyn QuadStore>>, optimize: bool, limit: i64, paths: bool) -> Chain {
-        Chain {
-            ctx,
-            s: it,
-            it: None,
-            paths,
-            qs,
-            optimize,
-            limit,
-            n: 0
-        }
-    }
-
-    fn quad_value_to_native() {
-
-    }
-
-    fn tags_to_value_map(&self, m: &HashMap<String, Ref>) -> Option<HashMap<String, Value>> {
-        let mut output_map = HashMap::new();
-
-        for (key, value) in m {
-            match self.qs.borrow().name_of(value) {
-                Some(v) => { output_map.insert(key.clone(), v); },
-                None => {}
-            };
-        }
-        
-        if output_map.is_empty() {
-            return None
-        }
-
-        return Some(output_map)
-    }
-
+impl BaseIterator {
     pub fn start(&mut self) {
         if self.optimize {
             let ctx = &*self.ctx.borrow();
@@ -87,43 +50,66 @@ impl Chain {
         }
         return ok
     }
+}
 
-    fn do_val(&mut self) -> Option<HashMap<String, Value>> {
 
-        if self.next_val() {
-            self.paths = true;
+pub struct TagEachIterator {
+    base: BaseIterator
+}
+
+impl TagEachIterator {
+    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, limit: i64, paths: bool) -> TagEachIterator {
+        TagEachIterator {
+            base: BaseIterator {
+                ctx,
+                s: it,
+                it: None,
+                paths,
+                optimize,
+                limit,
+                n: 0
+            }
+        }
+    }
+
+    fn do_val(&mut self) -> Option<HashMap<String, Ref>> {
+
+        if self.base.next_val() {
+            self.base.paths = true;
             let mut tags = HashMap::new();
-            self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-            return self.tags_to_value_map(&tags)
+            self.base.it.as_ref().unwrap().borrow().tag_results(&mut tags);
+            return Some(tags)
         } else {
-            self.end();
+            self.base.end();
             return None
         }
     }
 
-    fn do_path(&mut self)  -> Option<HashMap<String, Value>> {
+    fn do_path(&mut self)  -> Option<HashMap<String, Ref>> {
 
-        if self.next_path() {
+        if self.base.next_path() {
             let mut tags = HashMap::new();
-            self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-            return self.tags_to_value_map(&tags)
+            self.base.it.as_ref().unwrap().borrow().tag_results(&mut tags);
+            return Some(tags)
         } else {
-            self.paths = false;
+            self.base.paths = false;
             return self.do_val()
         }
     }
 }
 
-impl Iterator for Chain {
-    type Item = HashMap<String, Value>;
 
-    fn next(&mut self) -> Option<HashMap<String, Value>> {
 
-        if !self.it.is_some() {
-            self.start();
+impl Iterator for TagEachIterator {
+    type Item = HashMap<String, Ref>;
+
+    fn next(&mut self) -> Option<HashMap<String, Ref>> {
+
+        if !self.base.it.is_some() {
+            self.base.start();
         }
 
-        if !self.paths {
+        if !self.base.paths {
             return self.do_val()
         } else {
             return self.do_path()
@@ -132,48 +118,60 @@ impl Iterator for Chain {
 }
 
 
+pub struct EachIterator {
+    base: BaseIterator
+}
 
+impl EachIterator {
+    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, limit: i64, paths: bool) -> EachIterator {
+        EachIterator {
+            base: BaseIterator {
+                ctx,
+                s: it,
+                it: None,
+                paths,
+                optimize,
+                limit,
+                n: 0
+            }
+        }
+    }
 
+    fn do_val(&mut self) -> Option<Ref> {
 
+        if self.base.next_val() {
+            self.base.paths = true;
+            return self.base.it.as_ref().unwrap().borrow().result()
+        } else {
+            self.base.end();
+            return None
+        }
+    }
 
+    fn do_path(&mut self)  -> Option<Ref> {
 
+        if self.base.next_path() {
+            return self.base.it.as_ref().unwrap().borrow().result()
+        } else {
+            self.base.paths = false;
+            return self.do_val()
+        }
+    }
+}
 
-    // pub fn tag_each(&mut self, callback: &mut dyn TagMapCallback) -> Result<(), String> {
-    //     self.start();
+impl Iterator for EachIterator {
+    type Item = Ref;
 
-    //     let mut mn = 0;
+    fn next(&mut self) -> Option<Ref> {
 
-    //     while self.next() {
-    //         if let Some(reason) = self.ctx.borrow().done() {
-    //             return Err(reason.to_string());
-    //         }
-            
-    //         let mut tags = HashMap::new();
-    //         self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-    //         let n = tags.len();
-    //         if n > mn {
-    //             mn = n;
-    //         }
-    //         callback.tag_map_callback(tags);
+        if !self.base.it.is_some() {
+            self.base.start();
+        }
 
-    //         while self.next_path() {
-    //             if let Some(reason) = self.ctx.borrow().done() {
-    //                 return Err(reason.to_string());
-    //             }
-                
-    //             let mut tags = HashMap::new();
-    //             self.it.as_ref().unwrap().borrow().tag_results(&mut tags);
-    //             let n = tags.len();
-    //             if n > mn {
-    //                 mn = n;
-    //             }
-    //             callback.tag_map_callback(tags);
-    //         }
-    //     }
-
-    //     self.end();
-
-    //     match self.it.as_ref().unwrap().borrow().err() { Some(e) => Err(e), None => Ok(())}
-    // }
-
-    
+        if !self.base.paths {
+            return self.do_val()
+        } else {
+            return self.do_path()
+        }
+    }
+}

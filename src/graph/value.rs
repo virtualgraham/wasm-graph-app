@@ -64,8 +64,24 @@ pub enum Value {
     Null,
     Bool(bool),
     Number(Number),
+    IRI(String),
     String(String),
 }
+
+impl Value {
+    fn from_string<S: Into<String>>(s: S) -> Value {
+        let s = s.into();
+        if s.is_empty() {
+            return Value::String(s)
+        } else if s.chars().next().unwrap() == '<' && s.chars().last().unwrap() == '>' {
+            let v = &s[1..s.len()-1];
+            Value::IRI(v.to_string())
+        } else {
+            Value::String(s)
+        }
+    }
+}
+
 
 
 impl fmt::Display for Value {
@@ -75,6 +91,7 @@ impl fmt::Display for Value {
             Value::Null => write!(f, "null"),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Number(n) => write!(f, "{}", n),
+            Value::IRI(s) => write!(f, "<{}>", s),
             Value::String(s) => write!(f, "{}", s),
         }
         
@@ -163,14 +180,21 @@ impl From<bool> for Value {
 impl From<String> for Value {
     /// Convert `String` to `Value`
     fn from(f: String) -> Self {
-        Value::String(f)
+        Value::from_string(f)
     }
 }
 
 impl<'a> From<&'a str> for Value {
     /// Convert string slice to `Value`
     fn from(f: &str) -> Self {
-        Value::String(f.to_string())
+        Value::from_string(f)
+    }
+}
+
+impl<'a> From<()> for Value {
+    /// Convert string slice to `Value`
+    fn from(_: ()) -> Self {
+        Value::Undefined
     }
 }
 

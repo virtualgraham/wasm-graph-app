@@ -5,17 +5,12 @@ use crate::graph::quad::{Direction, QuadStore};
 use crate::query::shape::{Shape, AllNodes, Lookup, IteratorShape, build_iterator, ValueFilter};
 use std::rc::Rc;
 use std::cell::RefCell;
-use super::morphism_apply_functions;
+use super::morphism;
 use io_context::Context;
 use super::gizmo::Session;
 
 
-pub trait Morphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>);
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>);
-    fn is_tag(&self) -> bool { false }
-    fn tags(&self) -> Option<Vec<String>> { None }
-}
+
 
 
 
@@ -27,7 +22,7 @@ pub struct PathContext {
 
 #[derive(Clone)]
 pub struct Path {
-    stack: Vec<Rc<dyn Morphism>>,
+    stack: Vec<Rc<dyn morphism::Morphism>>,
     pub qs: Option<Rc<RefCell<dyn QuadStore>>>,
     pub base_context: PathContext
 }
@@ -39,10 +34,10 @@ impl Path {
     }
 
     pub fn start_path(qs: Option<Rc<RefCell<dyn QuadStore>>>, nodes: Vec<Value>) -> Path {
-        Path::new(qs, vec![morphism_apply_functions::IsMorphism::new(nodes)])
+        Path::new(qs, vec![morphism::IsMorphism::new(nodes)])
     }
 
-    pub fn new(qs: Option<Rc<RefCell<dyn QuadStore>>>, stack: Vec<Rc<dyn Morphism>>) -> Path {
+    pub fn new(qs: Option<Rc<RefCell<dyn QuadStore>>>, stack: Vec<Rc<dyn morphism::Morphism>>) -> Path {
         Path {
             stack,
             qs,
@@ -53,28 +48,28 @@ impl Path {
     ///////
 
     pub fn is(&mut self, nodes: Vec<Value>) {
-        self.stack.push(morphism_apply_functions::IsMorphism::new(nodes));
+        self.stack.push(morphism::IsMorphism::new(nodes));
     }
 
     pub fn in_with_tags(&mut self, tags: Vec<String>, via: Via) {
-        self.stack.push(morphism_apply_functions::InMorphism::new(tags, via));
+        self.stack.push(morphism::InMorphism::new(tags, via));
     }
 
     pub fn out_with_tags(&mut self, tags: Vec<String>, via: Via)  {
-        self.stack.push(morphism_apply_functions::OutMorphism::new(tags, via));
+        self.stack.push(morphism::OutMorphism::new(tags, via));
     }
 
 
     pub fn both_with_tags(&mut self, tags: Vec<String>, via: Via)  {
-        self .stack.push(morphism_apply_functions::BothMorphism::new(tags, via));
+        self .stack.push(morphism::BothMorphism::new(tags, via));
     }
 
     pub fn follow(&mut self, path: Path) {
-        self.stack.push(morphism_apply_functions::FollowMorphism::new(path));
+        self.stack.push(morphism::FollowMorphism::new(path));
     }
 
     pub fn follow_reverse(&mut self, mut path: Path) {
-        self.stack.push(morphism_apply_functions::FollowMorphism::new(path.reverse()));
+        self.stack.push(morphism::FollowMorphism::new(path.reverse()));
     }
 
     pub fn follow_recursive(&mut self, via: Via, max_depth: i32, tags: Vec<String>) {
@@ -83,20 +78,58 @@ impl Path {
             Via::Path(p) => p,
             Via::None => panic!("did not pass a predicate or a Path to FollowRecursive"),
         };
-        self.stack.push(morphism_apply_functions::FollowRecursiveMorphism::new(path, max_depth, tags));
+        self.stack.push(morphism::FollowRecursiveMorphism::new(path, max_depth, tags));
     }
 
     pub fn and(&mut self, path: Path) {
-        self.stack.push(morphism_apply_functions::AndMorphism::new(path));
+        self.stack.push(morphism::AndMorphism::new(path));
     }
     
     pub fn or(&mut self, path: Path) {
-        self.stack.push(morphism_apply_functions::OrMorphism::new(path));
+        self.stack.push(morphism::OrMorphism::new(path));
     }
 
 
     pub fn filters(&mut self, filters: Vec<Rc<dyn ValueFilter>>) {
-        self.stack.push(morphism_apply_functions::FilterMorphism::new(filters));
+        self.stack.push(morphism::FilterMorphism::new(filters));
+    }
+
+    pub fn tag(&mut self, tags: Vec<String>) {
+        self.stack.push(morphism::TagMorphism::new(tags));
+    }
+
+    pub fn back(&mut self, tag: String) -> Option<Path> {
+        let mut new_path = Path::new(self.qs.clone(), Vec::new());
+        let mut i = (self.stack.len() - 1) as i64;
+        loop {
+            println!("{}", i);
+            if i < 0 {
+                return Some(self.reverse())
+            }
+            if self.stack[i as usize].is_tag() {
+                let tags = self.stack[i as usize].tags();
+                if let Some(t) = tags {
+                    for x in t {
+                        if x == tag {
+                            self.stack = self.stack[0..((i+1) as usize)].to_vec();
+                            self.and(new_path);
+                            return None
+                        }
+                    }
+                }
+            }
+            let rev = self.stack[i as usize].reversal(&new_path.base_context);
+            new_path.stack.push(rev.0);
+            i -= 1;
+        }
+    }
+
+    pub fn except(&mut self, path: Path) {
+        self.stack.push(morphism::ExceptMorphism::new(path));
+    }
+
+    pub fn unique(&mut self) {
+        self.stack.push(morphism::UniqueMorphism::new());
     }
 
     ///////

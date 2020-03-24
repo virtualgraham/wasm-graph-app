@@ -27,7 +27,7 @@ pub enum Direction {
 }
 
 impl Quad {
-    pub fn new<V: Into<Value>>(subject:V, predicate:V, object:V, label:V) -> Quad {
+    pub fn new<W: Into<Value>, X: Into<Value>, Y: Into<Value>, Z: Into<Value>>(subject:W, predicate:X, object:Y, label:Z) -> Quad {
         Quad {
             subject: subject.into(),
             predicate: predicate.into(),

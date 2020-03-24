@@ -24,7 +24,9 @@ pub enum ShapeType<'a> {
     Union,
     Recursive,
     IteratorShape,
-    Filter(&'a mut Filter)
+    Filter(&'a mut Filter),
+    Except,
+    Unique
 }
 
 
@@ -410,6 +412,15 @@ pub struct Save {
     from: Option<Rc<RefCell<dyn Shape>>>
 }
 
+impl Save {
+    pub fn new(tags: Vec<String>, from: Option<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<Save>> {
+        Rc::new(RefCell::new(Save {
+            tags,
+            from
+        }))
+    }
+}
+
 impl Shape for Save {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
         if let None = self.from {
@@ -467,6 +478,28 @@ impl Shape for Union {
     }
 }
 
+
+///////////////////////////////////////////////
+
+pub struct Unique {
+    pub from: Rc<RefCell<dyn Shape>>
+}
+
+impl Shape for Unique {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+       let it = self.from.borrow().build_iterator(qs);
+       return iterator::unique::Unique::new(it);
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        // TODO: Implement
+        return None
+    }
+
+    fn shape_type(&mut self) -> ShapeType {
+        ShapeType::Unique
+    }
+}
 
 
 ///////////////////////////////////////////////
@@ -558,26 +591,59 @@ impl Shape for IntersectOpt {
 ///////////////////////////////////////////////
 
 
+#[derive(Clone)]
+pub struct Except {
+    pub exclude: Option<Rc<RefCell<dyn Shape>>>,
+    pub from: Option<Rc<RefCell<dyn Shape>>>
+}
+
+impl Shape for Except {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        let all = match &self.from {
+            Some(f) => f.borrow().build_iterator(qs.clone()),
+            None => qs.borrow().nodes_all_iterator()
+        };
+
+        return match &self.exclude {
+            Some(e) => iterator::not::Not::new(e.borrow().build_iterator(qs.clone()), all),
+            None => all
+        }
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        // TODO: Implement
+        return None
+    }
+
+    fn shape_type(&mut self) -> ShapeType {
+        ShapeType::Except
+    }
+}
+
+///////////////////////////////////////////////
+
 pub trait ValueFilter {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, shape: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>>;
 }
 
 pub struct Regexp {
-    re: Regex
+    re: Regex,
+    iri: bool
 }
 
 impl Regexp {
-    pub fn new(pattern: String) -> Regexp {
+    pub fn new(pattern: String, iri: bool) -> Regexp {
         let re = Regex::new(&pattern).unwrap();
         Regexp {
-            re
+            re,
+            iri
         }
     }
 }
 
 impl ValueFilter for Regexp {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, it: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>> {
-        iterator::value_filter::RegexValueFilter::new(it, qs, self.re.clone())
+        iterator::value_filter::RegexValueFilter::new(it, qs, self.re.clone(), self.iri)
     }
 }
 
@@ -639,7 +705,7 @@ impl ValueFilter for Wildcard {
 
         let re = Regex::new(&self.regexp()).unwrap();
 
-        iterator::value_filter::RegexValueFilter::new(it, qs, re)
+        iterator::value_filter::RegexValueFilter::new(it, qs, re, true)
     }
 }
 

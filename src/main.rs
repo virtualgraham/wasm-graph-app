@@ -15,79 +15,89 @@ use std::collections::HashMap;
 
 
 fn main() {
+ 
+
+    // {
+
+    //     let multi_graph = gizmo::new_memory_graph();
+    //     let session = multi_graph.s.borrow_mut();
+
+    //     session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
+    //     session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
+    //     session.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
+
+    //     session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
+    //     session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
+    //     session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
+
+    //     session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
+    //     session.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
+    //     session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
+
+    //     session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
+    //     session.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
+    //     session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
+
+    //     session.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
+    //     session.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
+    //     session.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
+
+    //     session.write(vec![Quad::new("<fred>", "<status>", "smart_person", "<smart_graph>")]);
+
+    // }
+   
+    
     let mut simple_graph = gizmo::new_memory_graph();
 
     {
         let session = simple_graph.s.borrow_mut();
 
-        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
-        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
-        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
+        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", ())]);
+        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", ())]);
+        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", ())]);
 
-        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
-        session.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", "")]);
-        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", ())]);
+        session.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", ())]);
+        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", ())]);
 
-        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
-        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
-        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
+        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", ())]);
+        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", ())]);
+        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", ())]);
 
-        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
-        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
-        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
+        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", ())]);
+        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", ())]);
+        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", ())]);
 
-        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
-        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
-        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
-
-        let multi_graph = gizmo::new_memory_graph();
-        let session = multi_graph.s.borrow_mut();
-
-        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", "")]);
-        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", "")]);
-        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", "")]);
-
-        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
-        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", "")]);
-        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", "")]);
-
-        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", "")]);
-        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", "")]);
-        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", "")]);
-
-        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", "")]);
-        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", "")]);
-        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", "")]);
-
-        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", "")]);
-        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
-        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
-
-        session.write(vec![Quad::new("<fred>", "<status>", "smart_person", "<smart_graph>")]);
+        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", ())]);
+        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", ())]);
+        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", ())]);
 
     }
-    /////
+
     
 
     let g = simple_graph.g();
 
-    // let r:Vec<HashMap<String, Ref>> = g.v("<alice>").all().collect();
 
-    // let r:Vec<HashMap<String, Ref>> = g.v(None).all().collect();
+    let r:Vec<HashMap<String, Value>> = g
+        .v("<emily>")
+        .out("<follows>", None)
+        .r#as(vec!["f".into()])
+        .out("<follows>", None)
+        .out("<status>", None)
+        .is("cool_person")
+        .back("f")
+        .r#in("<follows>", None)
+        .r#in("<follows>", None)
+        .r#as(vec!["acd".into()])
+        .out("<status>", None)
+        .is("cool_person")
+        .back("f")
+        .all().collect(); // just pred labels
 
-    // let r:Vec<HashMap<String, Ref>> = g.v(None).get_limit(5).collect();
+ 
+   
+    println!("{:?}", r);
 
-    // let r:Vec<HashMap<String, Ref>> = g.v("<alice>").out("<follows>", None).all().collect();
-    
-    // let r:Vec<HashMap<String, Ref>> = g.v("<bob>").out(None, None).all().collect();
 
-    //let r:Vec<HashMap<String, Ref>> = g.v("<bob>").r#in("<follows>", None).all().collect();
-
-    //let r:Vec<HashMap<String, Ref>> = g.v("<fred>").both("<follows>", None).all().collect();
-
-    let r:Vec<HashMap<String, Value>> = g.v("<bob>").r#in("<follows>", None).filter(gizmo::regex("ar?li.*e")).all().collect();
-
-    let f:Vec<HashMap<String, Value>> = vec![hashmap!{"id".into() => "<charlie>".into()}, hashmap!{"id".into() => "<alice>".into()}];
-
-    println!("{:?} {:?} {} {}", r, f, r.len(), r == f);
 }

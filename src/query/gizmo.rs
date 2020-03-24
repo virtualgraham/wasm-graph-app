@@ -1,15 +1,14 @@
-
 use super::path;
 use super::shape;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::graph::quad::{QuadStore, QuadWriter, IgnoreOptions, Quad};
-use crate::graph::refs::Ref;
 use crate::graph::graphmock;
 use crate::graph::value::{Value, Values};
 use crate::graph::iterator;
 use io_context::Context;
 use std::collections::HashMap;
+use crate::graph::refs::Ref;
 
 pub fn new_memory_graph() -> Foo {
     let qs = Rc::new(RefCell::new(graphmock::Store::new()));
@@ -45,27 +44,13 @@ impl Foo {
     }
 }
 
+
 pub struct Session {
     ctx: Rc<RefCell<Context>>,
     qs: Rc<RefCell<dyn QuadStore>>,
     qw: QuadWriter,
     limit: i64
 }
-
-// struct RunIteratorTagMapCallback<'a>(&'a mut Session);
-
-// impl<'a> iterator::iterate::TagMapCallback for RunIteratorTagMapCallback<'a> {
-//     fn tag_map_callback(&mut self, tags: HashMap<String, Ref>) -> bool {
-//         let ctx = self.0.ctx.clone();
-
-//         if !self.0.send(QueryResult{meta: false, val: None, tags: tags}) {
-//             self.0.ctx.borrow_mut().add_cancel_signal().cancel();
-//             return true;
-//         }
-
-//         return false
-//     }
-// }
 
 impl Session {
     pub fn write(&self, quads: Vec<Quad>) {
@@ -75,35 +60,29 @@ impl Session {
     }
 
     pub fn read(&self) -> Vec<Quad> {
+        // TODO: implement
         vec![Quad::new("a", "b", "c", "d")]
     }
 
     pub fn delete(&self, quads: Vec<Quad>) {
-
+        // TODO: implement
     }
 
-
-
-    fn run_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::Chain {
-        iterator::iterate::Chain::new(self.ctx.clone(), it, self.qs.clone(), false, self.limit, true)
+    fn run_tag_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::TagEachIterator {
+        iterator::iterate::TagEachIterator::new(self.ctx.clone(), it, false, self.limit, true)
     }
 
+    fn run_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::EachIterator {
+        iterator::iterate::EachIterator::new(self.ctx.clone(), it, false, self.limit, true)
+    }
 }
 
 
-
-
-struct QueryResult {
-    meta: bool,
-    val: Option<Value>,
-    tags: HashMap<String, Ref>
-}
 
 pub struct Graph {
     session: Rc<RefCell<Session>>,
     path: Option<Path>
 }
-
 
 impl Graph {
     pub fn new(session: Rc<RefCell<Session>>) -> Graph {
@@ -144,17 +123,13 @@ pub struct Path {
 }
 
 impl Path {
+
     fn new(session: Rc<RefCell<Session>>, finals: bool, path: path::Path) -> Path {
         Path {
             session,
             finals,
             path
         }
-    }
-
-    fn clonePath(mut self) -> path::Path {
-        self.path = self.path.clone();
-        return self.path
     }
 
     fn build_iterator_tree(&self) -> Rc<RefCell<dyn iterator::Shape>> {
@@ -166,62 +141,41 @@ impl Path {
         self.path.build_iterator_on(&*ctx, qs)
     }
 
+
     ///////////////
     // Finals
     ///////////////
 
-
-    pub fn get_limit(&self, limit: i64) -> iterator::iterate::Chain {
+    pub fn get_limit(&self, limit: i64) -> impl Iterator<Item = HashMap<String, Value>> {
         let it = self.build_iterator_tree();
         let it = iterator::save::tag(&it, &"id");
-
-        self.session.borrow_mut().limit = limit;
-        self.session.borrow_mut().run_iterator(it)
+        self.session.borrow_mut().limit = limit; 
+        let qs = self.session.borrow().qs.clone();
+        self.session.borrow_mut().run_tag_each_iterator(it).filter_map(move |r| tags_to_value_map(&r, &*qs.borrow()))
     }
 
-    pub fn all(&mut self) -> iterator::iterate::Chain {
+    pub fn all(&mut self) -> impl Iterator<Item = HashMap<String, Value>> {
         let limit = self.session.borrow().limit;
         self.get_limit(limit)
     }
 
-    // pub fn to_array(self, args: Option<Box<[JsValue]>>) -> JsValue {
-    //     JsValue::NULL
-    // }
+    pub fn get_limit_values(&self, limit: i64) -> impl Iterator<Item = Value> {
+        let it = self.build_iterator_tree();
+        self.session.borrow_mut().limit = limit; 
+        let qs = self.session.borrow().qs.clone();
+        self.session.borrow_mut().run_each_iterator(it).filter_map(move |r| ref_to_value(&r, &*qs.borrow()))
+    }
 
-    // //#[wasm_bindgen(js_name = tagArray)]
-    // pub fn tag_array(self, args: Option<Box<[JsValue]>>) -> JsValue {
-    //     JsValue::NULL
-    // }
-
-    // //#[wasm_bindgen(js_name = toValue)]
-    // pub fn to_value(self) -> JsValue {
-    //     JsValue::NULL
-    // }
-
-    // //#[wasm_bindgen(js_name = tagValue)]
-    // pub fn tag_value(self) -> JsValue {
-    //     JsValue::NULL
-    // }
-
-    // pub fn map(self, callback: &JsValue) {
-
-    // }
-
-    // //#[wasm_bindgen(js_name = forEach)]
-    // pub fn for_each(self, callback: &JsValue) {
-
-    // }
-
-    // pub fn count(self) -> JsValue {
-    //     JsValue::NULL
-    // }
+    pub fn all_values(&mut self) -> impl Iterator<Item = Value> {
+        let limit = self.session.borrow().limit;
+        self.get_limit_values(limit)
+    }
 
 
     ///////////////
     // Traversals
     ///////////////
     
-
     ///////////////////////////
     // Is(nodes: String[])
     ///////////////////////////
@@ -229,26 +183,6 @@ impl Path {
         self.path.is(nodes.into().to_vec());
         self
     }
-
-
-    // fn _in_out_values(self, values: Vec<Value>, tags: Option<Vec<String>>, dir_in: bool) -> Path {
-    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-    //     let via = path::Via::Values(values);
-
-    //     let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
-        
-    //     Path::new(self.session, self.finals, np)
-    // }
-
-    // fn _in_out_path(self, path: &Path, tags: Option<Vec<String>>, dir_in: bool) -> Path {
-    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-    //     let via = path::Via::Path(path.path.clone());
-
-    //     let np = if dir_in { self.path.in_with_tags(tags, via) } else { self.path.out_with_tags(tags, via) };
-        
-    //     Path::new(self.session, self.finals, np)
-    // }
-
 
     ///////////////////////////
     // In(values: String[], tags: String[])
@@ -259,15 +193,6 @@ impl Path {
         self
     }
 
-
-    // ///////////////////////////
-    // // In(path: Path, tags: String[])
-    // ///////////////////////////
-    // pub fn in_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-    //     self._in_out_path(path, tags, true)
-    // }
-
-
     ///////////////////////////
     // Out(values: String[], tags: String[])
     ///////////////////////////
@@ -277,43 +202,14 @@ impl Path {
         self
     }
 
-
-    // ///////////////////////////
-    // // Out(path: Path, tags: String[])
-    // ///////////////////////////
-    // pub fn out_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-    //     self._in_out_path(path, tags, false)
-    // }
-
-
+    ///////////////////////////
+    // Both(values: String[], tags: String[])
+    ///////////////////////////
     pub fn both<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
         let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
         self.path.both_with_tags(tags, via.into());
         self
     }
-
-
-    // ///////////////////////////
-    // // Both(values: String[], tags: String[])
-    // ///////////////////////////
-    // pub fn both_values(self, values: Vec<Value>, tags: Option<Vec<String>>) -> Path {
-    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-    //     let via = path::Via::Values(values);
-        
-    //     Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
-    // }
-
-
-    // ///////////////////////////
-    // // Both(path: Path, tags: String[])
-    // ///////////////////////////
-    // pub fn both_path(self, path: &Path, tags: Option<Vec<String>>) -> Path {
-    //     let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-    //     let via = path::Via::Path(path.path.clone());
-        
-    //     Path::new(self.session, self.finals, self.path.both_with_tags(tags, via))
-    // }
-
 
     ///////////////////////////
     // Follow(path: Path)
@@ -359,8 +255,17 @@ impl Path {
 
     ///////////////////////////
     // And(path: Path)
+    ///////////////////////////
+    
+    pub fn and(&mut self, path: &Path) -> &mut Path {
+        self.intersect(path)
+    }
+
+
+    ///////////////////////////
     // Intersect(path: Path)
     ///////////////////////////
+
     pub fn intersect(&mut self, path: &Path) -> &mut Path {
         self.path.and(path.path.clone());
         self
@@ -369,8 +274,17 @@ impl Path {
 
     ///////////////////////////
     // Or(path: Path)
+    ///////////////////////////
+    
+    pub fn or(&mut self, path: &Path) -> &mut Path {
+        self.union(path)
+    }
+
+
+    /////////////////////////// 
     // Union(path: Path)
     ///////////////////////////
+
     pub fn union(&mut self, path: &Path) -> &mut Path {
         self.path.or(path.path.clone());
         self
@@ -380,24 +294,32 @@ impl Path {
     ///////////////////////////
     // Back(tag: String)
     ///////////////////////////
-    pub fn back(&mut self, tag: String) -> &mut Path {
+    pub fn back<S: Into<String>>(&mut self, tag: S) -> &mut Path {
+        let np = self.path.back(tag.into());
+        if let Some(p) = np {
+            self.path = p
+        }
         self
     }
+
 
     ///////////////////////////
     // Back(tags: String[])
     ///////////////////////////
     pub fn tag(&mut self, tags: Vec<String>) -> &mut Path {
+        self.path.tag(tags);
         self
     }
+
 
     ///////////////////////////
     // As(tags: String[])
     ///////////////////////////
     pub fn r#as(&mut self, tags: Vec<String>) -> &mut Path {
-        self
+        self.tag(tags)
     }
 
+    
     ///////////////////////////
     // Has(predicate: String, object: String)
     ///////////////////////////
@@ -457,6 +379,7 @@ impl Path {
     // Except(path: Path)
     ///////////////////////////
     pub fn except(&mut self, path: &Path) -> &mut Path {
+        self.path.except(path.path.clone());
         self
     }
 
@@ -464,6 +387,7 @@ impl Path {
     // Unique()
     ///////////////////////////
     pub fn unique(&mut self) -> &mut Path {
+        self.path.unique();
         self
     }
 
@@ -557,6 +481,26 @@ impl Path {
 
 }
 
+fn ref_to_value(r: &Ref, qs: &dyn QuadStore) -> Option<Value> {
+    qs.name_of(r) 
+}
+
+fn tags_to_value_map(m: &HashMap<String, Ref>, qs: &dyn QuadStore) -> Option<HashMap<String, Value>> {
+    let mut output_map = HashMap::new();
+
+    for (key, value) in m {
+        match qs.name_of(value) {
+            Some(v) => { output_map.insert(key.clone(), v); },
+            None => {}
+        };
+    }
+    
+    if output_map.is_empty() {
+        return None
+    }
+
+    return Some(output_map)
+}
 
 
 pub struct ValueFilters {
@@ -597,8 +541,8 @@ pub fn gte<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {
     Rc::new(shape::Comparison::new(iterator::value_filter::Operator::GTE, v.into()))
 }
 
-pub fn regex<S: Into<String>>(pattern: S) -> Rc<dyn shape::ValueFilter> {
-    Rc::new(shape::Regexp::new(pattern.into()))
+pub fn regex<S: Into<String>>(pattern: S, iri: bool) -> Rc<dyn shape::ValueFilter> {
+    Rc::new(shape::Regexp::new(pattern.into(), iri))
 }
 
 pub fn like<S: Into<String>>(pattern: S) -> Rc<dyn shape::ValueFilter> {

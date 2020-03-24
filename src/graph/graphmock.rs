@@ -9,20 +9,20 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 
 pub struct Store {
-    pub data: HashSet<Quad>
+    pub data: Vec<Quad>
 }
 
 impl Store {
     pub fn new() -> Store {
         Store {
-            data: HashSet::new()
+            data: Vec::new()
         }
     }
 }
 
 fn quad_value(q: Quad) -> Ref {
     Ref {
-        key: Value::from(q.to_string()),
+        key: Value::String(q.to_string()),
         content: Content::Quad(q)
     }
 }
@@ -120,8 +120,14 @@ impl QuadStore for Store {
 
         for d in deltas {
             match d.action {
-                Procedure::Add => self.data.insert(d.quad),
-                Procedure::Delete =>  self.data.remove(&d.quad),
+                Procedure::Add => { 
+                    println!("adding quad {:?}", d.quad);
+                    self.data.push(d.quad); 
+                },
+                Procedure::Delete =>  { 
+                    let index = self.data.iter().position(|x| *x == d.quad).unwrap();
+                    self.data.remove(index);
+                },
             };
         }
 
@@ -149,7 +155,7 @@ impl QuadStore for Store {
         let fixed = Fixed::new(vec![]);
         for q in &self.data {
             fixed.borrow_mut().add(Ref {
-                key: Value::from(q.to_string()),
+                key: Value::String(q.to_string()),
                 content: Content::Quad(q.clone())
             });
         }

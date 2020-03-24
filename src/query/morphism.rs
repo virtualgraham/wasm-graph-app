@@ -2,8 +2,8 @@
 use crate::graph::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::path::{Morphism, PathContext};
-use crate::query::shape::{Shape, ShapeType, Lookup, Union, Null, Intersect, new_in_out, ValueFilter, Filter};
+use super::path::PathContext;
+use crate::query::shape::*;
 use crate::query::path::{Via, Path};
 use crate::graph::quad::{QuadStore};
 
@@ -20,6 +20,13 @@ fn join(its: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<dyn Shape>> {
 }
 
 //////////////////////////////////////////////////////////
+
+pub trait Morphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>);
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>);
+    fn is_tag(&self) -> bool { false }
+    fn tags(&self) -> Option<Vec<String>> { None }
+}
 
 pub struct IsMorphism {
     nodes: Vec<Value>
@@ -76,6 +83,10 @@ impl Morphism for InMorphism {
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("InMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), true), None)
+    }
+
+    fn tags(&self) -> Option<Vec<String>> { 
+        Some(self.tags.clone())
     }
 }
 
@@ -135,6 +146,10 @@ impl Morphism for BothMorphism {
             new_in_out(shape.clone(), via.clone(), ctx.label_set.clone(), self.tags.clone(), false)
         ]))), None)
     }
+
+    fn tags(&self) -> Option<Vec<String>> { 
+        Some(self.tags.clone())
+    }
 }
 
 //////////////////////////////////////////////////////////
@@ -167,23 +182,23 @@ impl Morphism for FollowMorphism {
 pub struct FollowRecursiveMorphism {
     path: Path,
     max_depth: i32,
-    tags: Vec<String>,
+    depth_tags: Vec<String>,
 
 }
 
 impl FollowRecursiveMorphism {
-    pub fn new(path: Path, max_depth: i32, tags: Vec<String>) -> Rc<dyn Morphism> {
+    pub fn new(path: Path, max_depth: i32, depth_tags: Vec<String>) -> Rc<dyn Morphism> {
         Rc::new(FollowRecursiveMorphism {
             path,
             max_depth,
-            tags
+            depth_tags
         })
     }
 }
 
 impl Morphism for FollowRecursiveMorphism {
     fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
-        (FollowRecursiveMorphism::new(self.path.clone().reverse(), self.max_depth, self.tags.clone()), None)
+        (FollowRecursiveMorphism::new(self.path.clone().reverse(), self.max_depth, self.depth_tags.clone()), None)
     }
 
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
@@ -265,6 +280,105 @@ impl Morphism for FilterMorphism {
     fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("FilterMorphism apply()");
         (Filter::new(shape, self.filters.clone()), None)
+    }
+}
+
+
+//////////////////////////////////////////////////////////
+
+
+pub struct TagMorphism {
+    tags: Vec<String>
+}
+
+impl TagMorphism {
+    pub fn new(tags: Vec<String>) -> Rc<dyn Morphism> {
+        Rc::new(TagMorphism {
+            tags
+        })
+    }
+}
+
+impl Morphism for TagMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (TagMorphism::new(self.tags.clone()), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("TagMorphism apply()");
+        (Save::new(self.tags.clone(), Some(shape.clone())), None)
+    }
+
+    fn is_tag(&self) -> bool { 
+        true
+    }
+
+    fn tags(&self) -> Option<Vec<String>> { 
+        Some(self.tags.clone())
+    }
+}
+
+
+//////////////////////////////////////////////////////////
+
+pub struct ExceptMorphism {
+    path: Path
+}
+
+impl ExceptMorphism {
+    pub fn new(path: Path) -> Rc<dyn Morphism> {
+        Rc::new(ExceptMorphism {
+            path
+        })
+    }
+}
+
+impl Morphism for ExceptMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (ExceptMorphism::new(self.path.clone()), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("ExceptMorphism apply()");
+        ( 
+            join(
+                vec![
+                    shape, 
+                    Rc::new(RefCell::new(Except{
+                        from: Some(AllNodes::new()), 
+                        exclude: Some(self.path.shape())
+                    }))
+                ]
+            ), 
+            None
+        )
+    }
+}
+
+
+//////////////////////////////////////////////////////////
+
+pub struct UniqueMorphism ();
+
+impl UniqueMorphism {
+    pub fn new() -> Rc<dyn Morphism> {
+        Rc::new(UniqueMorphism())
+    }
+}
+
+impl Morphism for UniqueMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (UniqueMorphism::new(), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("UniqueMorphism apply()");
+        ( 
+            Rc::new(RefCell::new(Unique{
+                from: shape
+            })), 
+            None
+        )
     }
 }
 
