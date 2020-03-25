@@ -4,13 +4,14 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::graph::quad::{QuadStore, QuadWriter, IgnoreOptions, Quad};
 use crate::graph::graphmock;
-use crate::graph::value::{Value, Values};
+use crate::graph::value::Value;
 use crate::graph::iterator;
 use io_context::Context;
 use std::collections::HashMap;
 use crate::graph::refs::Ref;
 
-pub fn new_memory_graph() -> Foo {
+
+pub fn new_memory_graph() -> GraphWrapper {
     let qs = Rc::new(RefCell::new(graphmock::Store::new()));
 
     let s = Rc::new(RefCell::new(Session {
@@ -22,19 +23,20 @@ pub fn new_memory_graph() -> Foo {
 
     let g = Graph::new(s.clone());
 
-    Foo {
+    GraphWrapper {
         g,
         s
     }
 }
 
 
-pub struct Foo {
+pub struct GraphWrapper {
     pub g: Graph,
     pub s: Rc<RefCell<Session>>
 }
 
-impl Foo {
+
+impl GraphWrapper {
     pub fn graph(&mut self) -> &mut Graph {
         return &mut self.g;
     }
@@ -76,7 +78,6 @@ impl Session {
         iterator::iterate::EachIterator::new(self.ctx.clone(), it, false, self.limit, true)
     }
 }
-
 
 
 pub struct Graph {
@@ -187,27 +188,24 @@ impl Path {
     ///////////////////////////
     // In(values: String[], tags: String[])
     ///////////////////////////
-    pub fn r#in<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        self.path.in_with_tags(tags, via.into());
+    pub fn r#in<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+        self.path.in_with_tags(tags.into().to_vec(), via.into());
         self
     }
 
     ///////////////////////////
     // Out(values: String[], tags: String[])
     ///////////////////////////
-    pub fn out<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        self.path.out_with_tags(tags, via.into());
+    pub fn out<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+        self.path.out_with_tags(tags.into().to_vec(), via.into());
         self
     }
 
     ///////////////////////////
     // Both(values: String[], tags: String[])
     ///////////////////////////
-    pub fn both<V: Into<path::Via>>(&mut self, via: V, tags: Option<Vec<String>>) -> &mut Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
-        self.path.both_with_tags(tags, via.into());
+    pub fn both<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+        self.path.both_with_tags(tags.into().to_vec(), via.into());
         self
     }
 
@@ -232,11 +230,10 @@ impl Path {
     ///////////////////////////
     // FollowRecursive(path: Path, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_path(&mut self, path: &Path, max_depth: Option<i32>, tags: Option<Vec<String>>) -> &mut Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    pub fn follow_recursive_path<T: Into<Tags>>(&mut self, path: &Path, max_depth: Option<i32>, tags: T) -> &mut Path {
         let via = path::Via::Path(path.path.clone());
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        self.path.follow_recursive(via, max_depth, tags);
+        self.path.follow_recursive(via, max_depth, tags.into().to_vec());
         self
     }
 
@@ -244,11 +241,10 @@ impl Path {
     ///////////////////////////
     // FollowRecursive(value: String, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_value(&mut self, value: Value, max_depth: Option<i32>, tags: Option<Vec<String>>) -> &mut Path {
-        let tags:Vec<String> = if let Some(t) = tags { t } else { Vec::new() };
+    pub fn follow_recursive_value<T: Into<Tags>>(&mut self, value: Value, max_depth: Option<i32>, tags: T) -> &mut Path {
         let via = path::Via::Values(vec![value]);
         let max_depth = match max_depth { Some(d) => d, None => 50 };
-        self.path.follow_recursive(via, max_depth, tags);
+        self.path.follow_recursive(via, max_depth, tags.into().to_vec());
         self
     }
 
@@ -306,8 +302,8 @@ impl Path {
     ///////////////////////////
     // Back(tags: String[])
     ///////////////////////////
-    pub fn tag(&mut self, tags: Vec<String>) -> &mut Path {
-        self.path.tag(tags);
+    pub fn tag<T: Into<Tags>>(&mut self, tags: T) -> &mut Path {
+        self.path.tag(tags.into().to_vec());
         self
     }
 
@@ -315,37 +311,46 @@ impl Path {
     ///////////////////////////
     // As(tags: String[])
     ///////////////////////////
-    pub fn r#as(&mut self, tags: Vec<String>) -> &mut Path {
+    pub fn r#as<T: Into<Tags>>(&mut self, tags: T) -> &mut Path {
         self.tag(tags)
     }
 
     
     ///////////////////////////
     // Has(predicate: String, object: String)
-    ///////////////////////////
-
-    ///////////////////////////
     // *Has(predicate: Path, object: String)
     // *Has(predicate: String, filters: Filter[])
     // *Has(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has(&mut self, predicate: String, object: String) -> &mut Path {
+    pub fn has<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> &mut Path {
+        match object.into() {
+            HasObject::ValueFilters(f) => {
+                self.path.has_filter(predicate.into(), false, f.filters);
+            },
+            HasObject::Values(v) => {
+                self.path.has(predicate.into(), false, v.to_vec());
+            }
+        }
         self
     }
 
     ///////////////////////////
     // HasR(predicate: String, object: String)
-    ///////////////////////////
-    
-    ///////////////////////////
     // *HasR(predicate: Path, object: String)
     // *HasR(predicate: String, filters: Filter[])
     // *HasR(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has_r(&mut self, predicate: String, object: String) -> &mut Path {
+    pub fn has_r<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> &mut Path {
+        match object.into() {
+            HasObject::ValueFilters(f) => {
+                self.path.has_filter(predicate.into(), true, f.filters);
+            },
+            HasObject::Values(v) => {
+                self.path.has(predicate.into(), true, v.to_vec());
+            }
+        }
         self
     }
-
 
     ///////////////////////////
     // Save(predicate: String, tag: String)
@@ -437,14 +442,14 @@ impl Path {
     ///////////////////////////
     // LabelContext(values: String[], tags: String[])
     ///////////////////////////
-    pub fn label_context_values(&mut self, values: Vec<String>, tags: Vec<String>) -> &mut Path {
+    pub fn label_context_values<T: Into<Tags>>(&mut self, values: Vec<String>, tags: Vec<String>) -> &mut Path {
         self
     }
 
     ///////////////////////////
     // LabelContext(path: Path, tags: String[])
     ///////////////////////////
-    pub fn label_context_path(&mut self, path: &Path, tags: Vec<String>) -> &mut Path {
+    pub fn label_context_path<T: Into<Tags>>(&mut self, path: &Path, tags: Vec<String>) -> &mut Path {
         self
     }
 
@@ -477,8 +482,6 @@ impl Path {
     pub fn order(&mut self) -> &mut Path {
         self
     }
-
-
 }
 
 fn ref_to_value(r: &Ref, qs: &dyn QuadStore) -> Option<Value> {
@@ -503,6 +506,180 @@ fn tags_to_value_map(m: &HashMap<String, Ref>, qs: &dyn QuadStore) -> Option<Has
 }
 
 
+
+
+/////////////////////
+// Argument Helpers
+/////////////////////
+
+pub enum Tags {
+    None,
+    Some(Vec<String>)
+}
+
+
+impl Tags {
+    pub fn to_vec(self) -> Vec<String> {
+        match self {
+            Tags::None => Vec::new(),
+            Tags::Some(v) => v
+        }
+    }
+}
+
+impl From<Option<Vec<String>>> for Tags {
+    fn from(v: Option<Vec<String>>) -> Self {
+        match v {
+            Some(v) => Tags::Some(v),
+            None => Tags::None
+        }
+    }
+}
+
+impl From<Vec<&str>> for Tags {
+    fn from(v: Vec<&str>) -> Self {
+        Tags::Some(v.iter().map(|s| s.to_string()).collect())
+    }
+}
+
+impl From<&str> for Tags {
+    fn from(v: &str) -> Self {
+        Tags::Some(vec![v.into()])
+    }
+}
+
+
+pub enum Values {
+    None,
+    Some(Vec<Value>)
+}
+
+impl Values {
+    pub fn to_vec(self) -> Vec<Value> {
+        match self {
+            Values::None => Vec::new(),
+            Values::Some(v) => v
+        }
+    }
+}
+
+impl From<Option<Value>> for Values {
+    fn from(v: Option<Value>) -> Self {
+        match v {
+            Some(v) => Values::Some(vec![v]),
+            None => Values::None
+        }
+    }
+}
+
+impl From<Value> for Values {
+    fn from(v: Value) -> Self {
+        Values::Some(vec![v])
+    }
+}
+
+impl From<Vec<Value>> for Values {
+    fn from(v: Vec<Value>) -> Self {
+        Values::Some(v)
+    }
+}
+
+impl From<Vec<&str>> for Values {
+    fn from(v: Vec<&str>) -> Self {
+        Values::Some(v.iter().map(|s| Value::from(*s)).collect())
+    }
+}
+
+impl From<&str> for Values {
+    fn from(v: &str) -> Self {
+        Values::Some(vec![v.into()])
+    }
+}
+
+impl From<String> for Values {
+    fn from(v: String) -> Self {
+        Values::Some(vec![v.into()])
+    }
+}
+
+
+pub enum HasObject {
+    ValueFilters(ValueFilters),
+    Values(Values)
+}
+
+impl From<Rc<dyn shape::ValueFilter>> for HasObject {
+    fn from(f: Rc<dyn shape::ValueFilter>) -> Self {
+        HasObject::ValueFilters(
+            ValueFilters {
+                filters: vec![f]
+            }
+        )
+    }
+}
+
+impl From<Vec<Rc<dyn shape::ValueFilter>>> for HasObject {
+    fn from(f: Vec<Rc<dyn shape::ValueFilter>>) -> Self {
+        HasObject::ValueFilters(
+            ValueFilters {
+                    filters: f
+            }
+        )
+    }
+}
+
+impl From<Option<Value>> for HasObject {
+    fn from(v: Option<Value>) -> Self {
+        HasObject::Values (
+            match v {
+                Some(v) => Values::Some(vec![v]),
+                None => Values::None
+            }
+        )
+    }
+}
+
+impl From<Value> for HasObject {
+    fn from(v: Value) -> Self {
+        HasObject::Values (
+            Values::Some(vec![v])
+        )
+    }
+}
+
+impl From<Vec<Value>> for HasObject {
+    fn from(v: Vec<Value>) -> Self {
+        HasObject::Values (
+            Values::Some(v)
+        )
+    }
+}
+
+impl From<Vec<&str>> for HasObject {
+    fn from(v: Vec<&str>) -> Self {
+        HasObject::Values (
+            Values::Some(v.iter().map(|s| Value::from(*s)).collect())
+        )
+    }
+}
+
+impl From<&str> for HasObject {
+    fn from(v: &str) -> Self {
+        HasObject::Values (
+            Values::Some(vec![v.into()])
+        )
+    }
+}
+
+impl From<String> for HasObject {
+    fn from(v: String) -> Self {
+        HasObject::Values (
+            Values::Some(vec![v.into()])
+        )
+    }
+}
+
+
 pub struct ValueFilters {
     filters: Vec<Rc<dyn shape::ValueFilter>>
 }
@@ -522,7 +699,6 @@ impl From<Vec<Rc<dyn shape::ValueFilter>>> for ValueFilters {
         }
     }
 }
-
 
 
 pub fn lt<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {

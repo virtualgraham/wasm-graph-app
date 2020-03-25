@@ -132,6 +132,16 @@ impl Path {
         self.stack.push(morphism::UniqueMorphism::new());
     }
 
+    pub fn has(&mut self, via: Via, rev: bool, nodes: Vec<Value>) {
+        self.stack.push(morphism::HasShapeMorphism::new_has_morphism(via, rev, nodes));
+    }
+
+    pub fn has_filter(&mut self, via: Via, rev: bool, nodes: Vec<Rc<dyn ValueFilter>>) {
+        self.stack.push(morphism::HasShapeMorphism::new_has_filter_morphism(via, rev, nodes));
+    }
+
+    
+
     ///////
  
 

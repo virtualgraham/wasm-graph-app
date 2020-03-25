@@ -8,54 +8,6 @@ use std::fmt;
 // use wasm_bindgen::JsValue;
 
 
-pub enum Values {
-    None,
-    Some(Vec<Value>)
-}
-
-impl Values {
-    pub fn to_vec(self) -> Vec<Value> {
-        match self {
-            Values::None => Vec::new(),
-            Values::Some(v) => v
-        }
-    }
-}
-
-impl From<Option<Value>> for Values {
-    fn from(v: Option<Value>) -> Self {
-        match v {
-            Some(v) => Values::Some(vec![v]),
-            None => Values::None
-        }
-    }
-}
-
-impl From<Value> for Values {
-    fn from(v: Value) -> Self {
-        Values::Some(vec![v])
-    }
-}
-
-impl From<Vec<Value>> for Values {
-    fn from(v: Vec<Value>) -> Self {
-        Values::Some(v)
-    }
-}
-
-impl From<&str> for Values {
-    fn from(v: &str) -> Self {
-        Values::Some(vec![v.into()])
-    }
-}
-
-impl From<String> for Values {
-    fn from(v: String) -> Self {
-        Values::Some(vec![v.into()])
-    }
-}
-
-
 
 #[derive(Debug, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]

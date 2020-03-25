@@ -295,6 +295,15 @@ pub struct NodesFrom {
     quads: Rc<RefCell<dyn Shape>>
 }
 
+impl NodesFrom {
+    pub fn new(dir: Direction, quads: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<NodesFrom>> {
+        Rc::new(RefCell::new(NodesFrom {
+            dir,
+            quads
+        }))
+    }
+}
+
 impl Shape for NodesFrom {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
         if let ShapeType::Null = self.quads.borrow_mut().shape_type() {
@@ -324,6 +333,15 @@ impl Shape for NodesFrom {
 pub struct QuadFilter {
     dir: Direction,
     values: Option<Rc<RefCell<dyn Shape>>>
+}
+
+impl QuadFilter {
+    pub fn new(dir: Direction, values: Option<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<QuadFilter>> {
+        Rc::new(RefCell::new(QuadFilter {
+            dir,
+            values
+        }))
+    }
 }
 
 impl Shape for QuadFilter {
@@ -368,6 +386,10 @@ impl Shape for QuadFilter {
 pub struct Quads(pub Vec<QuadFilter>);
 
 impl Quads {
+    fn new() -> Rc<RefCell<Quads>> {
+        Rc::new(RefCell::new(Quads(Vec::new())))
+    }
+
     fn interset(&mut self, mut q: Vec<QuadFilter>) {
         self.0.append(&mut q)
     }
@@ -779,7 +801,6 @@ impl Shape for Filter {
 ///////////////////////////////////////////////
 
 
-
 pub fn interset_optional(main: Rc<RefCell<dyn Shape>>, opt: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>  {
     let mut optional:Vec<Rc<RefCell<dyn Shape>>> = match opt.borrow_mut().shape_type() {
         ShapeType::IntersectOpt(io) => {
@@ -865,13 +886,16 @@ pub fn new_in_out(from:Rc<RefCell<dyn Shape>>, mut via:Rc<RefCell<dyn Shape>>, l
         }
     };
 
-    if labels.is_some() {
-        if let ShapeType::AllNodes = labels.as_ref().unwrap().borrow_mut().shape_type() {
-            quads.borrow_mut().0.push(QuadFilter {
-                dir: Direction::Label,
-                values: Some(labels.clone().unwrap())
-            });
-        }
+    if let Some(l) = labels {
+        match l.borrow_mut().shape_type() {
+            ShapeType::AllNodes => {},
+            _ => {
+                quads.borrow_mut().0.push(QuadFilter {
+                    dir: Direction::Label,
+                    values: Some(l.clone())
+                });
+            }
+        };
     }
 
     Rc::new(RefCell::new(NodesFrom {
@@ -896,5 +920,74 @@ fn one(shape: Rc<RefCell<dyn Shape>>) -> Option<Ref> {
         }
     }
     return None
+}
+
+
+pub fn intersect_shapes(s1: Rc<RefCell<dyn Shape>>, s2: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>> {
+    if let ShapeType::AllNodes = s1.borrow_mut().shape_type() {
+        return s2
+    }
+
+    if let ShapeType::Intersect(i1) = s1.borrow_mut().shape_type() {
+        if let ShapeType::Intersect(i2) = s2.borrow_mut().shape_type() {
+            for s in &i2.0 {
+                i1.0.push(s.clone());
+            }
+        } else {
+            i1.0.push(s2.clone());
+        }
+        return s1.clone()
+    }
+
+    return Intersect::new(vec![s1, s2])
+}
+
+
+pub fn has_labels(from: Rc<RefCell<dyn Shape>>, via: Rc<RefCell<dyn Shape>>, nodes: Rc<RefCell<dyn Shape>>, labels: Option<Rc<RefCell<dyn Shape>>>, rev: bool) -> Rc<RefCell<dyn Shape>> {
+    let start = if rev { Direction::Object } else { Direction::Subject };
+    let goal = if rev { Direction::Subject } else { Direction::Object };
+
+    let quads = Quads::new();
+
+    match nodes.borrow_mut().shape_type() {
+        ShapeType::AllNodes => {},
+        _ => {
+            quads.borrow_mut().0.push(QuadFilter {
+                dir: goal, 
+                values: Some(nodes.clone())
+            });
+        }
+    };
+
+    match via.borrow_mut().shape_type() {
+        ShapeType::AllNodes => {},
+        _ => {
+            quads.borrow_mut().0.push(QuadFilter {
+                dir: Direction::Predicate, 
+                values: Some(via.clone())
+            });
+        }
+    };
+
+    if let Some(l) = labels {
+
+        match l.borrow_mut().shape_type() {
+            ShapeType::AllNodes => {},
+            _ => {
+                quads.borrow_mut().0.push(QuadFilter {
+                    dir: Direction::Label, 
+                    values: Some(l.clone())
+                });
+            }
+        };
+    }
+
+    if quads.borrow().0.is_empty() {
+        panic!("empty has")
+    }
+
+    return intersect_shapes(from, NodesFrom::new(
+        start, quads
+    ))
 }
 

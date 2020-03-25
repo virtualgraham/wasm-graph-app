@@ -5,7 +5,7 @@ use std::rc::Rc;
 use super::path::PathContext;
 use crate::query::shape::*;
 use crate::query::path::{Via, Path};
-use crate::graph::quad::{QuadStore};
+
 
 fn join(its: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<dyn Shape>> {
     if its.is_empty() {
@@ -18,6 +18,7 @@ fn join(its: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<dyn Shape>> {
 
     return Intersect::new(its)
 }
+
 
 //////////////////////////////////////////////////////////
 
@@ -257,7 +258,6 @@ impl Morphism for OrMorphism {
     }
 }
 
-
 //////////////////////////////////////////////////////////
 
 pub struct FilterMorphism {
@@ -283,9 +283,7 @@ impl Morphism for FilterMorphism {
     }
 }
 
-
 //////////////////////////////////////////////////////////
-
 
 pub struct TagMorphism {
     tags: Vec<String>
@@ -317,7 +315,6 @@ impl Morphism for TagMorphism {
         Some(self.tags.clone())
     }
 }
-
 
 //////////////////////////////////////////////////////////
 
@@ -355,7 +352,6 @@ impl Morphism for ExceptMorphism {
     }
 }
 
-
 //////////////////////////////////////////////////////////
 
 pub struct UniqueMorphism ();
@@ -382,5 +378,56 @@ impl Morphism for UniqueMorphism {
     }
 }
 
+//////////////////////////////////////////////////////////
+
+pub struct HasShapeMorphism {
+    via: Via,
+    rev: bool,
+    nodes: Rc<RefCell<dyn Shape>>
+}
+
+impl HasShapeMorphism {
+
+    pub fn new_has_morphism(via: Via, rev: bool, nodes: Vec<Value>) -> Rc<dyn Morphism> {
+        let node:Rc<RefCell<dyn Shape>> = if nodes.is_empty() {
+            AllNodes::new()
+        } else {
+            Lookup::new(nodes)
+        };
+        HasShapeMorphism::new(via, rev, node) 
+    }
+
+    pub fn new_has_filter_morphism(via: Via, rev: bool, nodes: Vec<Rc<dyn ValueFilter>>) -> Rc<dyn Morphism> {
+        HasShapeMorphism::new(via, rev, Filter::new(AllNodes::new(), nodes)) 
+    }
+
+    pub fn new(via: Via, rev: bool, nodes: Rc<RefCell<dyn Shape>>) -> Rc<dyn Morphism> {
+        Rc::new(HasShapeMorphism {
+            via,
+            rev,
+            nodes
+        })
+    }
+}
+
+impl Morphism for HasShapeMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (HasShapeMorphism::new(self.via.clone(), self.rev, self.nodes.clone()), None)
+    }
+
+    fn apply(&self, r#in: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("HasShapeMorphism apply()");
+        ( 
+            has_labels(
+                r#in,
+                self.via.as_shape(),
+                self.nodes.clone(),
+                ctx.label_set.clone(),
+                self.rev
+            ), 
+            None
+        )
+    }
+}
 
 //////////////////////////////////////////////////////////

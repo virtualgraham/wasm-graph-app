@@ -39,6 +39,7 @@ fn simple_query_tests() {
     }
 
     let g = simple_graph.g();
+
     
     /////////////////////////
     // get a single vertex
@@ -56,6 +57,7 @@ fn simple_query_tests() {
     f.sort();
 
     assert_eq!(r, f);
+
     
     ///////////////////////
     // use .getLimit
@@ -76,6 +78,7 @@ fn simple_query_tests() {
     // f.sort();
 
     // assert_eq!(r, f);
+
 
     /////////////////////////
     // use .out()
@@ -253,7 +256,7 @@ fn simple_query_tests() {
 
     let mut r:Vec<String> = g
         .v("<fred>")
-        .both(None, Some(vec!["pred".into()]))
+        .both(None, "pred")
         .all().map(|x| x["pred"].to_string()).collect(); // just pred labels
 
 
@@ -273,7 +276,7 @@ fn simple_query_tests() {
     let mut r:Vec<String> = g
         .v("<bob>")
         .r#in("<follows>", None)
-        .tag(vec!["foo".into()])
+        .tag("foo")
         .out("<status>", None)
         .is("cool_person")
         .back("foo")
@@ -293,7 +296,7 @@ fn simple_query_tests() {
     let x = g
         .v("<charlie>")
         .out("<follows>", None)
-        .tag(vec!["foo".into()])
+        .tag("foo")
         .out("<status>", None)
         .is("cool_person")
         .back("foo");
@@ -318,14 +321,14 @@ fn simple_query_tests() {
     let mut r:Vec<String> = g
         .v("<emily>")
         .out("<follows>", None)
-        .r#as(vec!["f".into()])
+        .r#as("f")
         .out("<follows>", None)
         .out("<status>", None)
         .is("cool_person")
         .back("f")
         .r#in("<follows>", None)
         .r#in("<follows>", None)
-        .r#as(vec!["acd".into()])
+        .r#as("acd")
         .out("<status>", None)
         .is("cool_person")
         .back("f")
@@ -349,7 +352,7 @@ fn simple_query_tests() {
     let a = g.v("<alice>").clone();
 
     let mut r:Vec<String> = g
-        .v(vec!["<alice>".into(), "<bob>".into()])
+        .v(vec!["<alice>", "<bob>"])
         .except(&a)
         .all_values().map(|v| v.to_string()).collect();
 
@@ -368,7 +371,7 @@ fn simple_query_tests() {
     let b = g.v("<charlie>").clone();
 
     let mut r:Vec<String> = g
-        .v(vec!["<alice>".into(), "<bob>".into(), "<charlie>".into()])
+        .v(vec!["<alice>", "<bob>", "<charlie>"])
         .except(&a)
         .except(&b)
         .all_values().map(|v| v.to_string()).collect();
@@ -489,6 +492,51 @@ fn simple_query_tests() {
 
     let mut f:Vec<String> = vec![
         "<charlie>".into(),
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+
+    /////////////////////////
+    // show standard sort of morphism intersection, continue follow
+    /////////////////////////
+
+    let gfollowers = g.m().r#in("<follows>", None).r#in("<follows>", None).clone();
+    
+    fn cool(x: &str, g: &mut gizmo::Graph) -> gizmo::Path {
+        g.v(x).r#as("a").out("<status>", None).is("cool_person").back("a").clone()
+    }
+
+    let mut r:Vec<String> = cool("<greg>", g)
+        .follow(&gfollowers)
+        .intersect(&cool("<bob>", g))
+        .follow(&gfollowers)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<charlie>".into(),
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // test Or()
+    /////////////////////////
+
+    let a = g.v(None).has("<status>", "cool_person").clone();
+
+    let mut r:Vec<String> = g.v("<bob>")
+        .out("<follows>", None)
+        .or(&a)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<fred>".into(),
+        "<bob>".into(),
+        "<greg>".into(),
+        "<dani>".into(),
     ];
 
     assert!(sort_and_compare(&mut r, &mut f));
