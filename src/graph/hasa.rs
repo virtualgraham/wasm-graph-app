@@ -1,7 +1,7 @@
 
 use super::refs::{Ref, Size};
 use super::quad::{Direction, QuadStore};
-use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, is_null};
+use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, is_null, Null};
 use std::rc::Rc;
 use std::cell::RefCell;
 use io_context::Context;
@@ -38,7 +38,9 @@ impl fmt::Display for HasA {
 
 impl Shape for HasA {
     fn iterate(&self) -> Rc<RefCell<dyn Scanner>> {
-        HasANext::new(self.qs.clone(), self.primary.borrow().iterate(), self.dir.clone())
+        let temp = self.primary.borrow().iterate();
+        // println!("{}", temp.borrow().to_string());
+        HasANext::new(self.qs.clone(), temp, self.dir.clone())
     }
 
     fn lookup(&self) -> Rc<RefCell<dyn Index>> {

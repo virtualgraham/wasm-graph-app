@@ -37,12 +37,12 @@ pub struct GraphWrapper {
 
 
 impl GraphWrapper {
-    pub fn graph(&mut self) -> &mut Graph {
-        return &mut self.g;
+    pub fn graph(&self) -> Graph {
+        return self.g.clone();
     }
 
-    pub fn g(&mut self) -> &mut Graph {
-        return &mut self.g;
+    pub fn g(&self) -> Graph {
+        return self.g.clone();
     }
 }
 
@@ -79,39 +79,33 @@ impl Session {
     }
 }
 
-
+#[derive(Clone)]
 pub struct Graph {
     session: Rc<RefCell<Session>>,
-    path: Option<Path>
 }
 
 impl Graph {
     pub fn new(session: Rc<RefCell<Session>>) -> Graph {
         Graph {
-            path: None,
             session
         }
     }
 
-    pub fn v<V: Into<Values>>(&mut self, qv: V) -> &mut Path {
-        self.path = Some(
-            Path::new(
-                self.session.clone(), 
-                true, 
-                path::Path::start_path(
-                    Some(
-                        self.session.borrow().qs.clone()
-                    ), 
-                    qv.into().to_vec()
-                )
+    pub fn v<V: Into<Values>>(&self, qv: V) -> Path {
+        Path::new(
+            self.session.clone(), 
+            true, 
+            path::Path::start_path(
+                Some(
+                    self.session.borrow().qs.clone()
+                ), 
+                qv.into().to_vec()
             )
-        );
-        return self.path.as_mut().unwrap();
+        )
     }
 
-    pub fn m(&mut self) -> &mut Path {
-        self.path = Some(Path::new(self.session.clone(), false, path::Path::start_morphism(Vec::new())));
-        return self.path.as_mut().unwrap();
+    pub fn m(&self) -> Path {
+        Path::new(self.session.clone(), false, path::Path::start_morphism(Vec::new()))
     }
 }
 
@@ -180,72 +174,72 @@ impl Path {
     ///////////////////////////
     // Is(nodes: String[])
     ///////////////////////////
-    pub fn is<V: Into<Values>>(&mut self, nodes: V) -> &mut Path {
+    pub fn is<V: Into<Values>>(&mut self, nodes: V) -> Path {
         self.path.is(nodes.into().to_vec());
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // In(values: String[], tags: String[])
     ///////////////////////////
-    pub fn r#in<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+    pub fn r#in<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> Path {
         self.path.in_with_tags(tags.into().to_vec(), via.into());
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Out(values: String[], tags: String[])
     ///////////////////////////
-    pub fn out<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+    pub fn out<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> Path {
         self.path.out_with_tags(tags.into().to_vec(), via.into());
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Both(values: String[], tags: String[])
     ///////////////////////////
-    pub fn both<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> &mut Path {
+    pub fn both<V: Into<path::Via>, T: Into<Tags>>(&mut self, via: V, tags: T) -> Path {
         self.path.both_with_tags(tags.into().to_vec(), via.into());
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Follow(path: Path)
     ///////////////////////////
-    pub fn follow(&mut self, ep: &Path) -> &mut Path {
+    pub fn follow(&mut self, ep: &Path) -> Path {
         self.path.follow(ep.path.clone());
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // FollowR(path: Path)
     ///////////////////////////
-    pub fn follow_r(&mut self, ep: &Path) -> &mut Path {
+    pub fn follow_r(&mut self, ep: &Path) -> Path {
         self.path.follow_reverse(ep.path.clone());
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // FollowRecursive(path: Path, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_path<T: Into<Tags>>(&mut self, path: &Path, max_depth: Option<i32>, tags: T) -> &mut Path {
+    pub fn follow_recursive_path<T: Into<Tags>>(&mut self, path: &Path, max_depth: Option<i32>, tags: T) -> Path {
         let via = path::Via::Path(path.path.clone());
         let max_depth = match max_depth { Some(d) => d, None => 50 };
         self.path.follow_recursive(via, max_depth, tags.into().to_vec());
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // FollowRecursive(value: String, maxDepth: int, tags: Stringp[])
     ///////////////////////////
-    pub fn follow_recursive_value<T: Into<Tags>>(&mut self, value: Value, max_depth: Option<i32>, tags: T) -> &mut Path {
+    pub fn follow_recursive_value<T: Into<Tags>>(&mut self, value: Value, max_depth: Option<i32>, tags: T) -> Path {
         let via = path::Via::Values(vec![value]);
         let max_depth = match max_depth { Some(d) => d, None => 50 };
         self.path.follow_recursive(via, max_depth, tags.into().to_vec());
-        self
+        self.clone()
     }
 
 
@@ -253,7 +247,7 @@ impl Path {
     // And(path: Path)
     ///////////////////////////
     
-    pub fn and(&mut self, path: &Path) -> &mut Path {
+    pub fn and(&mut self, path: &Path) -> Path {
         self.intersect(path)
     }
 
@@ -262,9 +256,9 @@ impl Path {
     // Intersect(path: Path)
     ///////////////////////////
 
-    pub fn intersect(&mut self, path: &Path) -> &mut Path {
+    pub fn intersect(&mut self, path: &Path) -> Path {
         self.path.and(path.path.clone());
-        self
+        self.clone()
     }
 
 
@@ -272,7 +266,7 @@ impl Path {
     // Or(path: Path)
     ///////////////////////////
     
-    pub fn or(&mut self, path: &Path) -> &mut Path {
+    pub fn or(&mut self, path: &Path) -> Path {
         self.union(path)
     }
 
@@ -281,37 +275,37 @@ impl Path {
     // Union(path: Path)
     ///////////////////////////
 
-    pub fn union(&mut self, path: &Path) -> &mut Path {
+    pub fn union(&mut self, path: &Path) -> Path {
         self.path.or(path.path.clone());
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // Back(tag: String)
     ///////////////////////////
-    pub fn back<S: Into<String>>(&mut self, tag: S) -> &mut Path {
+    pub fn back<S: Into<String>>(&mut self, tag: S) -> Path {
         let np = self.path.back(tag.into());
         if let Some(p) = np {
             self.path = p
         }
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // Back(tags: String[])
     ///////////////////////////
-    pub fn tag<T: Into<Tags>>(&mut self, tags: T) -> &mut Path {
+    pub fn tag<T: Into<Tags>>(&mut self, tags: T) -> Path {
         self.path.tag(tags.into().to_vec());
-        self
+        self.clone()
     }
 
 
     ///////////////////////////
     // As(tags: String[])
     ///////////////////////////
-    pub fn r#as<T: Into<Tags>>(&mut self, tags: T) -> &mut Path {
+    pub fn r#as<T: Into<Tags>>(&mut self, tags: T) -> Path {
         self.tag(tags)
     }
 
@@ -322,7 +316,7 @@ impl Path {
     // *Has(predicate: String, filters: Filter[])
     // *Has(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> &mut Path {
+    pub fn has<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> Path {
         match object.into() {
             HasObject::ValueFilters(f) => {
                 self.path.has_filter(predicate.into(), false, f.filters);
@@ -331,7 +325,7 @@ impl Path {
                 self.path.has(predicate.into(), false, v.to_vec());
             }
         }
-        self
+        self.clone()
     }
 
     ///////////////////////////
@@ -340,7 +334,7 @@ impl Path {
     // *HasR(predicate: String, filters: Filter[])
     // *HasR(predicate: Path, filters: Filter[])
     ///////////////////////////
-    pub fn has_r<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> &mut Path {
+    pub fn has_r<V: Into<path::Via>, O: Into<HasObject>>(&mut self, predicate: V, object: O) -> Path {
         match object.into() {
             HasObject::ValueFilters(f) => {
                 self.path.has_filter(predicate.into(), true, f.filters);
@@ -349,138 +343,138 @@ impl Path {
                 self.path.has(predicate.into(), true, v.to_vec());
             }
         }
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Save(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save(&mut self, predicate: String, tag: String) -> &mut Path {
-        self
+    pub fn save(&mut self, predicate: String, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // SaveR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_r(&mut self, predicate: String, tag: String) -> &mut Path {
-        self
+    pub fn save_r(&mut self, predicate: String, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // SaveOpt(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt(&mut self, predicate: String, tag: String) -> &mut Path {
-        self
+    pub fn save_opt(&mut self, predicate: String, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // SaveOptR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt_r(&mut self, predicate: String, tag: String) -> &mut Path {
-        self
+    pub fn save_opt_r(&mut self, predicate: String, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // Except(path: Path)
     ///////////////////////////
-    pub fn except(&mut self, path: &Path) -> &mut Path {
+    pub fn except(&mut self, path: &Path) -> Path {
         self.path.except(path.path.clone());
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Unique()
     ///////////////////////////
-    pub fn unique(&mut self) -> &mut Path {
+    pub fn unique(&mut self) -> Path {
         self.path.unique();
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Difference(path: Path)
     ///////////////////////////
-    pub fn difference(&mut self, path: &Path) -> &mut Path {
-        self
+    pub fn difference(&mut self, path: &Path) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // Labels()
     ///////////////////////////
-    pub fn labels(&mut self) -> &mut Path {
-        self
+    pub fn labels(&mut self) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // InPredicates(tag:String)
     ///////////////////////////
-    pub fn in_predicates(&mut self, tag: String) -> &mut Path {
-        self
+    pub fn in_predicates(&mut self, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // OutPredicates()
     ///////////////////////////
-    pub fn out_predicates(&mut self) -> &mut Path {
-        self
+    pub fn out_predicates(&mut self) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // SaveInPredicates(tag:String)
     ///////////////////////////
-    pub fn save_in_predicates(&mut self, tag: String) -> &mut Path {
-        self
+    pub fn save_in_predicates(&mut self, tag: String) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // SaveOutPredicates(tag:String)
     ///////////////////////////
-    pub fn save_out_predicates(&mut self, tag: String) -> &mut Path {
-        self
+    pub fn save_out_predicates(&mut self, tag: String) -> Path {
+        self.clone()
     }
 
 
     ///////////////////////////
     // LabelContext(values: String[], tags: String[])
     ///////////////////////////
-    pub fn label_context_values<T: Into<Tags>>(&mut self, values: Vec<String>, tags: Vec<String>) -> &mut Path {
-        self
+    pub fn label_context_values<T: Into<Tags>>(&mut self, values: Vec<String>, tags: Vec<String>) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // LabelContext(path: Path, tags: String[])
     ///////////////////////////
-    pub fn label_context_path<T: Into<Tags>>(&mut self, path: &Path, tags: Vec<String>) -> &mut Path {
-        self
+    pub fn label_context_path<T: Into<Tags>>(&mut self, path: &Path, tags: Vec<String>) -> Path {
+        self.clone()
     }
 
 
     ///////////////////////////
     // Filter(filter: Filter)
     ///////////////////////////
-    pub fn filter<F: Into<ValueFilters>>(&mut self, filters: F) -> &mut Path {
+    pub fn filter<F: Into<ValueFilters>>(&mut self, filters: F) -> Path {
         self.path.filters(filters.into().filters);
-        self
+        self.clone()
     }
 
     ///////////////////////////
     // Limit(limit: Number)
     ///////////////////////////
-    pub fn limit(&mut self, limit: i32) -> &mut Path {
-        self
+    pub fn limit(&mut self, limit: i32) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // Skip(offset: Number)
     ///////////////////////////
-    pub fn skip(&mut self, offset: i32) -> &mut Path {
-        self
+    pub fn skip(&mut self, offset: i32) -> Path {
+        self.clone()
     }
 
     ///////////////////////////
     // Order()
     ///////////////////////////
-    pub fn order(&mut self) -> &mut Path {
-        self
+    pub fn order(&mut self) -> Path {
+        self.clone()
     }
 }
 

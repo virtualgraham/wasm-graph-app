@@ -293,7 +293,7 @@ fn simple_query_tests() {
     // separate .tag()-.is()-.back()
     /////////////////////////
  
-    let x = g
+    let mut x = g
         .v("<charlie>")
         .out("<follows>", None)
         .tag("foo")
@@ -349,11 +349,9 @@ fn simple_query_tests() {
     // use Except to filter out a single vertex
     /////////////////////////
 
-    let a = g.v("<alice>").clone();
-
     let mut r:Vec<String> = g
         .v(vec!["<alice>", "<bob>"])
-        .except(&a)
+        .except(&g.v("<alice>"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -367,13 +365,10 @@ fn simple_query_tests() {
     // use chained Except
     /////////////////////////
 
-    let a = g.v("<bob>").clone();
-    let b = g.v("<charlie>").clone();
-
     let mut r:Vec<String> = g
         .v(vec!["<alice>", "<bob>", "<charlie>"])
-        .except(&a)
-        .except(&b)
+        .except(&g.v("<bob>"))
+        .except(&g.v("<charlie>"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -387,7 +382,7 @@ fn simple_query_tests() {
     // show simple morphism
     /////////////////////////
 
-    let grandfollows = g.m().out("<follows>", None).out("<follows>", None).clone();
+    let grandfollows = g.m().out("<follows>", None).out("<follows>", None);
 
     let mut r:Vec<String> = g
         .v("<charlie>")
@@ -407,7 +402,7 @@ fn simple_query_tests() {
     // show reverse morphism
     /////////////////////////
 
-    let grandfollows = g.m().out("<follows>", None).out("<follows>", None).clone();
+    let grandfollows = g.m().out("<follows>", None).out("<follows>", None);
 
     let mut r:Vec<String> = g
         .v("<fred>")
@@ -427,12 +422,10 @@ fn simple_query_tests() {
     // show simple intersection
     /////////////////////////
 
-    fn follows(g: &mut gizmo::Graph, x: &str) -> gizmo::Path {
-        g.v(x).out("<follows>", None).clone()
-    }
+    let follows = |x: &str| g.v(x).out("<follows>", None);
 
-    let mut r:Vec<String> = follows(g, "<dani>")
-        .and(&follows(g, "<charlie>"))
+    let mut r:Vec<String> = follows("<dani>")
+        .and(&follows("<charlie>"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -446,13 +439,14 @@ fn simple_query_tests() {
     // show simple morphism intersection
     /////////////////////////
 
-    fn gfollows(g: &mut gizmo::Graph, x: &str) -> gizmo::Path {
-        let grandfollows = g.m().out("<follows>", None).out("<follows>", None).clone();
-        g.v(x).follow(&grandfollows).clone()
-    }
+    let grandfollows = g.m().out("<follows>", None).out("<follows>", None);
 
-    let mut r:Vec<String> = gfollows(g, "<alice>")
-        .and(&gfollows(g, "<charlie>"))
+    let gfollows = |x: &str| {
+        g.v(x).follow(&grandfollows)
+    };
+
+    let mut r:Vec<String> = gfollows("<alice>")
+        .and(&gfollows("<charlie>"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -466,9 +460,9 @@ fn simple_query_tests() {
     // show double morphism intersection
     /////////////////////////
 
-    let mut r:Vec<String> = gfollows(g, "<emily>")
-        .and(&gfollows(g, "<charlie>"))
-        .and(&gfollows(g, "<bob>"))
+    let mut r:Vec<String> = gfollows("<emily>")
+        .and(&gfollows("<charlie>"))
+        .and(&gfollows("<bob>"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -482,12 +476,11 @@ fn simple_query_tests() {
     // show reverse intersection
     /////////////////////////
 
-    let grandfollows = g.m().out("<follows>", None).out("<follows>", None).clone();
-    let s = g.v("<fred>").follow_r(&grandfollows).clone();
+    let grandfollows = g.m().out("<follows>", None).out("<follows>", None);
 
     let mut r:Vec<String> = g.v("<greg>")
         .follow_r(&grandfollows)
-        .intersect(&s)
+        .intersect(&g.v("<fred>").follow_r(&grandfollows))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -502,15 +495,13 @@ fn simple_query_tests() {
     // show standard sort of morphism intersection, continue follow
     /////////////////////////
 
-    let gfollowers = g.m().r#in("<follows>", None).r#in("<follows>", None).clone();
+    let gfollowers = g.m().r#in("<follows>", None).r#in("<follows>", None);
     
-    fn cool(x: &str, g: &mut gizmo::Graph) -> gizmo::Path {
-        g.v(x).r#as("a").out("<status>", None).is("cool_person").back("a").clone()
-    }
+    let cool = |x: &str| g.v(x).r#as("a").out("<status>", None).is("cool_person").back("a");
 
-    let mut r:Vec<String> = cool("<greg>", g)
+    let mut r:Vec<String> = cool("<greg>")
         .follow(&gfollowers)
-        .intersect(&cool("<bob>", g))
+        .intersect(&cool("<bob>"))
         .follow(&gfollowers)
         .all_values().map(|v| v.to_string()).collect();
 
@@ -525,11 +516,9 @@ fn simple_query_tests() {
     // test Or()
     /////////////////////////
 
-    let a = g.v(None).has("<status>", "cool_person").clone();
-
     let mut r:Vec<String> = g.v("<bob>")
         .out("<follows>", None)
-        .or(&a)
+        .or(&g.v(None).has("<status>", "cool_person"))
         .all_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
@@ -537,6 +526,70 @@ fn simple_query_tests() {
         "<bob>".into(),
         "<greg>".into(),
         "<dani>".into(),
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // show a simple Has
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<status>", "cool_person")
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<greg>".into(),
+        "<dani>".into(),
+        "<bob>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // show a simple HasR
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has_r("<status>", "<bob>")
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "cool_person".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a double Has
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<status>", "cool_person")
+        .has("<follows>", "<fred>")
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<bob>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a Has with filter
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<follows>", gizmo::gt("<f>"))
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<bob>".into(),
+        "<dani>".into(),
+        "<emily>".into(),
+        "<fred>".into()
     ];
 
     assert!(sort_and_compare(&mut r, &mut f));

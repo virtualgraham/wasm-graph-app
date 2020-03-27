@@ -42,17 +42,7 @@ impl Namer for Store {
         return Some(key.key.clone())
     }
 
-    #[allow(unused)]
-    fn values_of(&self, ctx: &Context, values: &Vec<Ref>) -> Result<Vec<Value>, String> {
-        Ok(values.iter().map(|v| self.name_of(v).unwrap()).collect())
-    }
 
-    #[allow(unused)]
-    fn refs_of(&self, ctx: &Context, nodes: &Vec<Value>) -> Result<Vec<Ref>, String> {
-        nodes.iter().map(|v| {
-            match self.value_of(v) { Some(s) => Ok(s), None => Err("Not Found".to_string()) }
-        }).collect()
-    }
 }
 
 impl QuadStore for Store {

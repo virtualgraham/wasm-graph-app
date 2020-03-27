@@ -108,7 +108,8 @@ pub enum ShapeType<'a> {
     Sort,
     Test,
     Unique,
-    ValueFilter
+    ValueFilter,
+    MemStoreIterator
 }
 
 

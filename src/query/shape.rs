@@ -310,9 +310,7 @@ impl Shape for NodesFrom {
             return iterator::Null::new() 
         }
         let sub = self.quads.borrow().build_iterator(qs.clone());
-        if let Direction::Any = self.dir {
-            panic!("direction is not set");
-        }
+
         return HasA::new(qs.clone(), sub, self.dir.clone())
     }
 
@@ -356,10 +354,6 @@ impl Shape for QuadFilter {
         if let Some(v) = one(self.values.clone().unwrap()) {
             println!("Quad Filter Some(v) = one(self.values.clone().unwrap())");
             return qs.borrow().quad_iterator(&self.dir, &v)
-        }
-
-        if let Direction::Any = self.dir {
-            panic!("direction is not set")
         }
 
         let sub = self.values.clone().unwrap().borrow().build_iterator(qs.clone());

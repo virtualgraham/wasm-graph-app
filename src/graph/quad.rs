@@ -6,6 +6,7 @@ use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
+use std::slice::Iter;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[derive(Serialize, Deserialize)]
@@ -16,17 +17,43 @@ pub struct Quad {
     pub label: Value
 }
 
+
 #[derive(Debug, PartialEq, Clone)]
 #[repr(C)]
 pub enum Direction {
-    Any,
     Subject,
     Predicate,
     Object,
     Label
 }
 
+impl Direction {
+    pub fn iterator() -> Iter<'static, Direction> {
+        static DIRECTIONS: [Direction; 4] = [Direction::Subject, Direction::Predicate, Direction::Object, Direction::Label];
+        DIRECTIONS.iter()
+    }
+}
+
 impl Quad {
+
+    pub fn set_val(&mut self, dir: &Direction, v: Value) {
+        match dir {
+            Direction::Subject => self.subject = v,
+            Direction::Predicate => self.predicate = v,
+            Direction::Object => self.object = v,
+            Direction::Label => self.label = v
+        };
+    }
+
+    pub fn new_undefined_vals() -> Quad {
+        Quad {
+            subject: Value::Undefined,
+            predicate: Value::Undefined,
+            object: Value::Undefined,
+            label: Value::Undefined
+        }
+    }
+
     pub fn new<W: Into<Value>, X: Into<Value>, Y: Into<Value>, Z: Into<Value>>(subject:W, predicate:X, object:Y, label:Z) -> Quad {
         Quad {
             subject: subject.into(),
@@ -41,8 +68,7 @@ impl Quad {
             Direction::Subject => &self.subject,
             Direction::Predicate => &self.predicate,
             Direction::Object => &self.object,
-            Direction::Label => &self.label,
-            Direction::Any => panic!("invalid direction"),
+            Direction::Label => &self.label
         }
     }
 }

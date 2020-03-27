@@ -14,7 +14,7 @@ pub struct And {
 }
 
 
-impl And {
+impl And  {
 
     pub fn new(sub: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<And>> {
         Rc::new(RefCell::new(And {
@@ -48,7 +48,7 @@ impl fmt::Display for And {
 }
 
 impl Shape for And {
-    fn iterate(self: &Self) -> Rc<RefCell<dyn Scanner>> {
+    fn iterate(&self) -> Rc<RefCell<dyn Scanner>> {
         if self.sub.is_empty() {
             return Null::new()
         }
@@ -70,7 +70,7 @@ impl Shape for And {
         AndNext::new(self.sub[0].borrow().iterate(), AndContains::new(sub, opt))
     }
 
-    fn lookup(self: &Self) -> Rc<RefCell<dyn Index>> {
+    fn lookup(&self) -> Rc<RefCell<dyn Index>> {
         if self.sub.is_empty() {
             return Null::new()
         }

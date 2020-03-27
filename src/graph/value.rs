@@ -21,6 +21,13 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn as_i64(&self) -> Option<i64> {
+        if let Value::Number(n) = self {
+            return n.as_i64()
+        }
+        None
+    }
+
     fn from_string<S: Into<String>>(s: S) -> Value {
         let s = s.into();
         if s.is_empty() {
