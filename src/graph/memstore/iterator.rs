@@ -1,48 +1,47 @@
 use crate::graph::value::Value;
-use crate::graph::refs::{Size, Ref, Namer, Content};
-use crate::graph::iterator::{Base, Scanner, Index, Shape, Null, Costs, ShapeType};
-use crate::graph::quad::{QuadStore, Quad, Direction};
+use crate::graph::refs::{Size, Ref, Content};
+use crate::graph::iterator::{Base, Scanner, Index, Shape, Costs, ShapeType};
+use crate::graph::quad::{Direction};
 
 use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::fmt;
 
-use super::quadstore::{MemStore, Primitive};
+use std::collections::BTreeSet;
 
-pub struct MemStoreIterator<'a> {
-    tree: &'a BTreeSet<i64>,
+
+pub struct MemStoreIterator {
+    quad_ids: Rc<BTreeSet<i64>>,
     d: Direction
 }
 
-impl<'a> MemStoreIterator<'a> {
-    pub fn new(tree: &'a BTreeSet<i64>, d: Direction) -> Rc<RefCell<MemStoreIterator>> {
+impl MemStoreIterator {
+    pub fn new(quad_ids: Rc<BTreeSet<i64>>, d: Direction) -> Rc<RefCell<MemStoreIterator>> {
         Rc::new(RefCell::new(MemStoreIterator {
-            tree,
+            quad_ids,
             d
         }))
     }
 }
 
-impl Shape for MemStoreIterator<'_> {
+impl Shape for MemStoreIterator {
 
     fn iterate(&self) -> Rc<RefCell<dyn Scanner>> {
-        MemStoreIteratorNext::new(self.tree, self.d)
+        MemStoreIteratorNext::new(self.quad_ids.clone(), self.d.clone())
     }
 
     fn lookup(&self) -> Rc<RefCell<dyn Index>> {
-        MemStoreIteratorContains::new(self.tree, self.d)
+        MemStoreIteratorContains::new(self.quad_ids.clone(), self.d.clone())
     }
 
     fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
         Ok(Costs {
-            contains_cost: ((self.tree.len() as f64).ln() as i64) + 1,
+            contains_cost: ((self.quad_ids.len() as f64).ln() as i64) + 1,
             next_cost: 1,
             size: Size {
-                value: self.tree.len() as i64,
+                value: self.quad_ids.len() as i64,
                 exact: true
             }
         })
@@ -63,27 +62,26 @@ impl Shape for MemStoreIterator<'_> {
 }
 
 
-impl fmt::Display for MemStoreIterator<'_> {
+impl fmt::Display for MemStoreIterator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MemStoreIterator")
+        write!(f, "MemStoreIterator {:?}", self.d)
     }
 }
 
 
 pub struct MemStoreIteratorNext<'a> {
-    tree: &'a BTreeSet<i64>,
-    iter: Option<Box<dyn Iterator<Item = i64>>>,
+    iter: std::collections::btree_set::Iter<'a, i64>,
+    d: Direction,
     cur: Option<i64>,
-    d: Direction
 }
 
-impl MemStoreIteratorNext<'_> {
-    pub fn new(tree: &BTreeSet<i64>, d: Direction) -> Rc<RefCell<MemStoreIteratorNext>> {
+impl<'a> MemStoreIteratorNext<'a> {
+    pub fn new(quad_ids: Rc<BTreeSet<i64>>, d: Direction) -> Rc<RefCell<MemStoreIteratorNext<'a>>> {
+        
         Rc::new(RefCell::new(MemStoreIteratorNext {
-            tree,
-            iter: None,
-            cur: None,
-            d
+            iter: quad_ids.iter(),
+            d,
+            cur: None
         }))
     }
 }
@@ -93,8 +91,8 @@ impl Base for MemStoreIteratorNext<'_> {
 
     fn result(&self) -> Option<Ref> {
         match self.cur {
-            Some(c) => Some(Ref {
-                key: Value::from(c),
+            Some(quad_id) => Some(Ref {
+                key: Value::from(quad_id),
                 content: Content::None
             }),
             None => None
@@ -116,20 +114,9 @@ impl Base for MemStoreIteratorNext<'_> {
 
 impl Scanner for MemStoreIteratorNext<'_> {
     fn next(&mut self, ctx: &Context) -> bool {
-        if self.iter.is_none() {
-            self.iter = Some(Box::new(self.tree.iter()));
-        }
-
-        loop {
-            let p = self.iter.unwrap().next();
-            match p {
-                Some(p_) => {
-                    self.cur = Some(p_.clone());
-                    return true
-                }
-                None => return false
-            }
-        }
+        let n = self.iter.next();
+        self.cur = n.map(|quad_id| *quad_id);
+        self.cur.is_some()
     }
 }
 
@@ -142,23 +129,23 @@ impl fmt::Display for MemStoreIteratorNext<'_> {
 
 
 
-pub struct MemStoreIteratorContains<'a> {
-    tree: &'a BTreeSet<i64>,
-    cur: Option<i64>,
-    d: Direction
+pub struct MemStoreIteratorContains {
+    quad_ids: Rc<BTreeSet<i64>>,
+    d: Direction,
+    cur: Option<i64>
 }
 
-impl MemStoreIteratorContains<'_> {
-    pub fn new(tree: &BTreeSet<i64>, d: Direction) -> Rc<RefCell<MemStoreIteratorContains>> {
+impl MemStoreIteratorContains {
+    pub fn new(quad_ids: Rc<BTreeSet<i64>>, d: Direction) -> Rc<RefCell<MemStoreIteratorContains>> {
         Rc::new(RefCell::new(MemStoreIteratorContains {
-            tree,
-            cur: None,
-            d
+            quad_ids,
+            d,
+            cur: None
         }))
     }
 }
 
-impl Base for MemStoreIteratorContains<'_> {
+impl Base for MemStoreIteratorContains {
     fn tag_results(&self, tags: &mut HashMap<String, Ref>) {}
 
     fn result(&self) -> Option<Ref> {
@@ -184,12 +171,12 @@ impl Base for MemStoreIteratorContains<'_> {
     }
 }
 
-impl Index for MemStoreIteratorContains<'_> {
+impl Index for MemStoreIteratorContains {
     fn contains(&mut self, ctx: &Context, v:&Ref) -> bool {
         let id = v.unwrap_value().as_i64();
         match id {
             Some(i) => {
-                let c = self.tree.contains(&i);
+                let c = self.quad_ids.contains(&i);
                 if c {
                     self.cur = Some(i);
                     return true
@@ -202,7 +189,7 @@ impl Index for MemStoreIteratorContains<'_> {
     }
 }
 
-impl fmt::Display for MemStoreIteratorContains<'_> {
+impl fmt::Display for MemStoreIteratorContains {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "MemStoreIteratorContains {:?}", self.d)
     }

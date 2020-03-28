@@ -32,6 +32,15 @@ impl Direction {
         static DIRECTIONS: [Direction; 4] = [Direction::Subject, Direction::Predicate, Direction::Object, Direction::Label];
         DIRECTIONS.iter()
     }
+
+    pub fn to_byte(&self) -> i8 {
+        match self {
+            Direction::Subject => 0,
+            Direction::Predicate => 1,
+            Direction::Object => 2,
+            Direction::Label => 3
+        }
+    } 
 }
 
 impl Quad {

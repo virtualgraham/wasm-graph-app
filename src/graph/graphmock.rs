@@ -38,6 +38,7 @@ impl Namer for Store {
         return None
     }
 
+    
     fn name_of(&self, key: &Ref) -> Option<Value> {
         return Some(key.key.clone())
     }
@@ -53,6 +54,8 @@ impl QuadStore for Store {
         }
     }
 
+
+    // all quads that have the given value in the given direction
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>> {
         let fixed = Fixed::new(vec![]);
         for q in &self.data {
@@ -63,6 +66,7 @@ impl QuadStore for Store {
         }
         return fixed
     }
+
 
     #[allow(unused)]
     fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String> {
@@ -78,9 +82,11 @@ impl QuadStore for Store {
         return Ok(sz);
     }
 
+
     fn quad_direction(&self, r: &Ref, d: &Direction) -> Ref {
         pre_fetched(self.quad(r).get(d).clone())
     }
+
 
     #[allow(unused)]
     fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String> {
@@ -103,6 +109,7 @@ impl QuadStore for Store {
         })
     }
     
+
     fn apply_deltas(&mut self, deltas: Vec<Delta>, ignore_opts: &IgnoreOptions) -> Result<(), String> {
         // if !ignore_opts.ignore_dup || !ignore_opts.ignore_missing {
 
@@ -124,6 +131,7 @@ impl QuadStore for Store {
         Ok(())
     }
 
+
     fn nodes_all_iterator(&self) -> Rc<RefCell<dyn Shape>> {
         let mut set = HashSet::new();
         for q in &self.data {
@@ -141,6 +149,7 @@ impl QuadStore for Store {
         return fixed
     }
 
+
     fn quads_all_iterator(&self) -> Rc<RefCell<dyn Shape>> {
         let fixed = Fixed::new(vec![]);
         for q in &self.data {
@@ -151,6 +160,7 @@ impl QuadStore for Store {
         }
         return fixed
     }
+
 
     fn close(&self) -> Option<String> {
         return None

@@ -1,6 +1,6 @@
 use crate::graph::value::Value;
 use crate::graph::refs::{Size, Ref, Namer, Content};
-use crate::graph::iterator::{Shape, Null, Scanner, Index, Costs, ShapeType};
+use crate::graph::iterator::{Shape, Null};
 use crate::graph::quad::{QuadStore, Quad, Direction};
 
 use io_context::Context;
@@ -9,57 +9,67 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::fmt;
 
 use super::iterator::MemStoreIterator;
 
-struct QuadDirectionIndex (
-    [BTreeMap<i64, BTreeSet<i64>>; 4]
-);
 
-fn dir_idx(d: &Direction) -> usize {
-    match d {
-        Direction::Subject => 0,
-        Direction::Predicate => 1,
-        Direction::Object => 2,
-        Direction::Label => 30
-    }
-} 
 
-impl QuadDirectionIndex {
-    fn get(&self,d: &Direction, id: i64) -> Option<&BTreeSet<i64>> {
-        self.0[dir_idx(d)].get(&id)
-    }
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct QuadDirectionKey {
+    direction: i8,
+    value_id: i64,
+    quad_id: i64
+}
 
-    fn tree(&self, d: &Direction, id: i64) -> &mut BTreeSet<i64> {
-        let tree = self.0[dir_idx(d)].get(&id);
-        match tree.as_mut() {
-            None => {
-                let t = BTreeSet::new();
-                let t_ = &mut t;
-                self.0[dir_idx(d)].insert(id, t);
-                return t_;
-            },
-            Some(t) => {
-                return t
-            }
+impl QuadDirectionKey {
+    pub fn new(value_id: i64, direction: &Direction, quad_id: i64) -> QuadDirectionKey {
+        QuadDirectionKey {
+            direction: direction.to_byte(),
+            value_id,
+            quad_id
         }
     }
 }
 
+struct QuadDirectionIndex {
+    index: BTreeSet<QuadDirectionKey>,
+}
+
+impl QuadDirectionIndex {
+    // get all quad_ids that have the given value_id at the given location
+    fn get(&self, d: &Direction, value_id: i64) -> Rc<BTreeSet<i64>> {
+        let lower_bound = QuadDirectionKey::new(value_id, d, 0);
+        Rc::new(self.index.range(lower_bound..).take_while(|k| {
+            k.value_id == value_id
+        }).map(|k| k.quad_id).collect())
+    }
+
+    fn insert(&mut self, value_id: i64, d: &Direction, quad_id: i64) {
+        self.index.insert(QuadDirectionKey::new(value_id, d, quad_id));
+    }
+
+    fn remove(&mut self, value_id: i64, d: &Direction, quad_id: i64) {
+        self.index.remove(&QuadDirectionKey::new(value_id, d, quad_id));
+    }
+}
+
+enum PrimitiveContent {
+    Value(Value),
+    Quad(InternalQuad)
+}
+
 pub struct Primitive {
     pub id: i64,
-    pub quad: Option<InternalQuad>,
-    pub value: Option<Value>,
-    pub refs: i32
+    pub refs: i32,
+    pub content: PrimitiveContent,
+    
 }
 
 impl Primitive {
     pub fn new_value(v: Value) -> Primitive {
         Primitive {
             id: 0,
-            quad: None,
-            value: Some(v),
+            content: PrimitiveContent::Value(v),
             refs: 0
         }
     }
@@ -67,9 +77,24 @@ impl Primitive {
     pub fn new_quad(q: InternalQuad) -> Primitive {
         Primitive {
             id: 0,
-            quad: Some(q),
-            value: None,
+            content: PrimitiveContent::Quad(q),
             refs: 0
+        }
+    }
+
+    pub fn unwrap_value(&self) -> &Value {
+        if let PrimitiveContent::Value(v) = self.content {
+            return &v
+        } else {
+            panic!("Primitive does not contain value")
+        }
+    }
+
+    pub fn unwrap_Quad(&self) -> &InternalQuad {
+        if let PrimitiveContent::Quad(q) = self.content {
+            return &q
+        } else {
+            panic!("Primitive does not contain quad")
         }
     }
 }
@@ -105,15 +130,13 @@ impl InternalQuad {
 }
 
 
-
-
 pub struct MemStore {
-    last: i64,
-    vals: HashMap<Value, i64>,
-    quads: HashMap<InternalQuad, i64>,
-    prim: BTreeMap<i64, Primitive>,
-    index: QuadDirectionIndex,
-    horizon: i64
+    vals: HashMap<Value, i64>, // value to value_id
+    quads: HashMap<InternalQuad, i64>, // quad to quad_id
+    prim: BTreeMap<i64, Primitive>, // value_id or quad_id to value or quad
+    index: QuadDirectionIndex, // value_id and direction to quad id
+    last: i64, // keeps track of ids for values and quads
+    horizon: i64 // keeps track of ids for transactions
 }
 
 impl MemStore {
@@ -134,19 +157,26 @@ impl MemStore {
         let id = self.vals.get(v);
         
         if id.is_some() || !add {
+            // if the value exsists and we are adding it, increment refs
             if id.is_some() && add {
                 self.prim.get(id.unwrap()).as_mut().unwrap().refs += 1;
             }
+            // return val_id
             return *id.unwrap()
         }
+
+        // value is new and we are adding it
         let id = self.add_primitive(Primitive::new_value(v.clone()));
         self.vals.insert(v.clone(), id);
+
         return id
     }
 
+    
     fn resolve_quad(&self, q: Quad, add: bool) -> InternalQuad {
         let p = InternalQuad{s: 0, p: 0, o: 0, l: 0};
 
+        // find all value ids for each direction of quad
         for dir in Direction::iterator() {
             let v = q.get(dir);
             if let Value::Undefined = v {
@@ -156,6 +186,7 @@ impl MemStore {
             if  vid != 0 {
                 p.set_dir(dir, vid);
             } else {
+                // if any value is not found or undefined return zero value internal quad
                 return InternalQuad{s: 0, p: 0, o: 0, l: 0}
             }
         }
@@ -163,45 +194,60 @@ impl MemStore {
         return p
     }
 
-    fn indexes_for_quad<'a>(&'a self, q: InternalQuad) -> impl Iterator<Item = &'a mut BTreeSet<i64>> {
-        Direction::iterator().filter_map(|dir| {
-            let v = q.dir(dir);
-            if v == 0 {
-                return None
-            }
-            Some(self.index.tree(dir, v))
-        })
-    }
+
 
     pub fn add_quad(&self, q: Quad) -> i64 {
+        // get value_ids for each direction
         let p = self.resolve_quad(q, false);
+
+        // get quad id
         let id = self.quads.get(&p);
+
+        // if id already exsists, the quad therefor exsists already. return the id
         if let Some(i) = id {
             return *i
         }
+
+        // get value_ids for each direction, this time inserting the values as neccecery
         let p = self.resolve_quad(q, true);
+        
+        // add value primitive
         let pr = Primitive::new_quad(p);
         let id = self.add_primitive(pr);
+        
+        // add quad
         self.quads.insert(p, id);
 
-        for t in self.indexes_for_quad(p) {
-            t.insert(id);
+        // add to index
+        for d in Direction::iterator() {
+            self.index.insert(p.dir(d), d, id);
         }
 
         return id;
     }
 
+
     fn lookup_val(&self, id: &i64) -> Option<Value> {
         let pv = self.prim.get(id);
         match pv {
-            Some(p) => p.value,
+            Some(p) => {
+                match p.content {
+                    PrimitiveContent::Value(v) => Some(v),
+                    _ => None
+                }
+            },
             None => None
         }
     }
 
     fn internal_quad(&self, r: &Ref) -> Option<InternalQuad> {
         match self.prim.get(r.key.as_i64().as_ref().unwrap()) {
-            Some(p) => p.quad,
+            Some(p) => {
+                match p.content {
+                    PrimitiveContent::Quad(q) => Some(q),
+                    _ => None
+                }
+            },
             None => None
         }
     }
@@ -269,12 +315,10 @@ impl QuadStore for MemStore {
         
         if let Some(i) = id {
 
-            let index = self.index.get(d, i);
+            let quad_ids = self.index.get(d, i);
 
-            if let Some(idx) = index {
-                if !idx.is_empty() {
-                    return MemStoreIterator::new(idx, d.clone())
-                }
+            if !quad_ids.is_empty() {
+                return MemStoreIterator::new(quad_ids, d.clone())
             }
         } 
             
