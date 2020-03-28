@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::graph::quad::{QuadStore, QuadWriter, IgnoreOptions, Quad};
 use crate::graph::graphmock;
+use crate::graph::memstore;
 use crate::graph::value::Value;
 use crate::graph::iterator;
 use io_context::Context;
@@ -12,7 +13,7 @@ use crate::graph::refs::Ref;
 
 
 pub fn new_memory_graph() -> GraphWrapper {
-    let qs = Rc::new(RefCell::new(graphmock::Store::new()));
+    let qs = Rc::new(RefCell::new(memstore::quadstore::MemStore::new()));
 
     let s = Rc::new(RefCell::new(Session {
         ctx: Rc::new(RefCell::new(Context::background())),

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use std::collections::BTreeSet;
-
+use std::ops::Bound::{Excluded, Unbounded};
 
 pub struct MemStoreIterator {
     quad_ids: Rc<BTreeSet<i64>>,
@@ -69,24 +69,27 @@ impl fmt::Display for MemStoreIterator {
 }
 
 
-pub struct MemStoreIteratorNext<'a> {
-    iter: std::collections::btree_set::Iter<'a, i64>,
+pub struct MemStoreIteratorNext {
+    quad_ids: Rc<BTreeSet<i64>>,
     d: Direction,
     cur: Option<i64>,
+    done: bool
 }
 
-impl<'a> MemStoreIteratorNext<'a> {
-    pub fn new(quad_ids: Rc<BTreeSet<i64>>, d: Direction) -> Rc<RefCell<MemStoreIteratorNext<'a>>> {
+impl MemStoreIteratorNext {
+    pub fn new(quad_ids: Rc<BTreeSet<i64>>, d: Direction) -> Rc<RefCell<MemStoreIteratorNext>> {
         
         Rc::new(RefCell::new(MemStoreIteratorNext {
-            iter: quad_ids.iter(),
+            quad_ids,
             d,
-            cur: None
+            cur: None,
+            done: false
         }))
+        
     }
 }
 
-impl Base for MemStoreIteratorNext<'_> {
+impl Base for MemStoreIteratorNext {
     fn tag_results(&self, tags: &mut HashMap<String, Ref>) {}
 
     fn result(&self) -> Option<Ref> {
@@ -112,15 +115,38 @@ impl Base for MemStoreIteratorNext<'_> {
     }
 }
 
-impl Scanner for MemStoreIteratorNext<'_> {
+impl Scanner for MemStoreIteratorNext {
     fn next(&mut self, ctx: &Context) -> bool {
-        let n = self.iter.next();
-        self.cur = n.map(|quad_id| *quad_id);
-        self.cur.is_some()
+
+         // TODO: This is ridiculous, there has to be a way to just use a single iterator.
+
+        let q = !self.done && self.cur.is_none();
+
+        let iter:Box<dyn Iterator<Item = &i64>> = if q {
+            Box::new(self.quad_ids.iter())
+        } else {
+            Box::new(
+                self.quad_ids.range(
+                    (Excluded(self.cur.unwrap()), Unbounded)
+                )
+            )
+        };
+
+        self.cur = iter.map(|quad_id| *quad_id).next();
+        
+        println!("MemStoreIteratorNext {:?}", self.cur);
+
+        if !self.cur.is_some() {
+            self.done = true;
+            return false
+        }
+
+        return true
+
     }
 }
 
-impl fmt::Display for MemStoreIteratorNext<'_> {
+impl fmt::Display for MemStoreIteratorNext {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "MemStoreIteratorNext {:?}", self.d)
     }
@@ -173,7 +199,7 @@ impl Base for MemStoreIteratorContains {
 
 impl Index for MemStoreIteratorContains {
     fn contains(&mut self, ctx: &Context, v:&Ref) -> bool {
-        let id = v.unwrap_value().as_i64();
+        let id = v.key.as_i64();
         match id {
             Some(i) => {
                 let c = self.quad_ids.contains(&i);
@@ -181,10 +207,14 @@ impl Index for MemStoreIteratorContains {
                     self.cur = Some(i);
                     return true
                 } else {
+                    self.cur = None;
                     return false
                 }
             },
-            None => false
+            None => {
+                self.cur = None;
+                return false
+            }
         }
     }
 }

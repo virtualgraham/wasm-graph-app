@@ -7,8 +7,6 @@ use graph::quad::Quad;
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use] 
-extern crate maplit;
 
 use graph::value::Value;
 use std::collections::HashMap;

@@ -35,10 +35,10 @@ impl Direction {
 
     pub fn to_byte(&self) -> i8 {
         match self {
-            Direction::Subject => 0,
-            Direction::Predicate => 1,
-            Direction::Object => 2,
-            Direction::Label => 3
+            Direction::Subject => 1,
+            Direction::Predicate => 2,
+            Direction::Object => 3,
+            Direction::Label => 4
         }
     } 
 }
@@ -106,10 +106,10 @@ pub enum Procedure {
 }
 
 pub trait QuadStore : Namer {
-    fn quad(&self, r: &Ref) -> Quad;
+    fn quad(&self, r: &Ref) -> Option<Quad>;
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>>;
     fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String>;
-    fn quad_direction(&self, r: &Ref, d: &Direction) -> Ref;
+    fn quad_direction(&self, r: &Ref, d: &Direction) -> Option<Ref>;
     fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String>;
     
     fn apply_deltas(&mut self, deltas: Vec<Delta>, ignore_opts: &IgnoreOptions) -> Result<(), String>;

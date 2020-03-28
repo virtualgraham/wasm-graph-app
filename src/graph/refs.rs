@@ -70,15 +70,15 @@ impl Ref {
         }
     }
 
-    pub fn unwrap_value(self) -> Value {
-        match self.content {
+    pub fn unwrap_value(&self) -> &Value {
+        match &self.content {
             Content::Value(v) => v,
             _ => panic!("Ref does not contain a value")
         }
     }
 
-    pub fn unwrap_quad(self) -> Quad {
-        match self.content {
+    pub fn unwrap_quad(&self) -> &Quad {
+        match &self.content {
             Content::Quad(q) => q,
             _ => panic!("Ref does not contain a value")
         }

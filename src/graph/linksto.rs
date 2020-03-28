@@ -268,10 +268,17 @@ impl Base for LinksToContains {
 impl Index for LinksToContains {
     fn contains(&mut self, ctx: &Context, val:&Ref) -> bool {
         let node = self.qs.borrow().quad_direction(val, &self.dir);
-        if self.primary.borrow_mut().contains(ctx, &node) {
-            self.result = Some(val.clone());
-            return true
+        match node {
+            Some(n) => {
+                if self.primary.borrow_mut().contains(ctx, &n) {
+                    self.result = Some(val.clone());
+                    return true
+                }
+                return false
+            },
+            None => {
+                panic!("LinksToContains quad_direction not found")
+            }
         }
-        return false
     }
 }

@@ -47,10 +47,10 @@ impl Namer for Store {
 }
 
 impl QuadStore for Store {
-    fn quad(&self, r: &Ref) -> Quad {
+    fn quad(&self, r: &Ref) -> Option<Quad> {
         match &r.content {
-            Content::Quad(q) => q.clone(),
-            _ => panic!("Ref does not contain a value")
+            Content::Quad(q) => Some(q.clone()),
+            _ => None
         }
     }
 
@@ -83,8 +83,13 @@ impl QuadStore for Store {
     }
 
 
-    fn quad_direction(&self, r: &Ref, d: &Direction) -> Ref {
-        pre_fetched(self.quad(r).get(d).clone())
+    fn quad_direction(&self, r: &Ref, d: &Direction) -> Option<Ref> {
+        match self.quad(r) {
+            Some(q) => {
+                Some(pre_fetched(q.get(d).clone()))
+            },
+            None => None
+        }
     }
 
 

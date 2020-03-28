@@ -31,5 +31,5 @@ fn test_links_to() {
     let lto = LinksTo::new(qs.clone(), fixed, Direction::Object).borrow().iterate();
 
     assert!(lto.borrow_mut().next(&ctx));
-    assert_eq!(q, qs.borrow().quad(lto.borrow().result().as_ref().unwrap()));
+    assert_eq!(q, qs.borrow().quad(lto.borrow().result().as_ref().unwrap()).unwrap());
 }

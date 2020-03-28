@@ -143,8 +143,18 @@ impl Scanner for HasANext {
         if !self.primary.borrow_mut().next(ctx) {
             return false
         }
-        self.result = Some(self.qs.borrow().quad_direction(self.primary.borrow().result().as_ref().unwrap(), &self.dir));
-        return true
+        
+        match self.qs.borrow().quad_direction(self.primary.borrow().result().as_ref().unwrap(), &self.dir) {
+            Some(q) => {
+                self.result = Some(q);
+                return true
+            },
+            None => {
+                panic!("HasANext quad not found");
+            }
+        }
+
+
     }
 
 }
@@ -184,8 +194,15 @@ impl HasAContains {
             let link = self.results.as_ref().unwrap().borrow().result();
             // TODO logging
             if self.primary.borrow_mut().contains(ctx, link.as_ref().unwrap()) {
-                self.result = Some(self.qs.borrow().quad_direction(link.as_ref().unwrap(), &self.dir));
-                return true
+                match self.qs.borrow().quad_direction(link.as_ref().unwrap(), &self.dir) {
+                    Some(q) => {
+                        self.result = Some(q);
+                        return true
+                    },
+                    None => {
+                        panic!("HasANext quad_direction not found");
+                    }
+                }
             }
         }
         self.err = self.results.as_ref().unwrap().borrow().err();
