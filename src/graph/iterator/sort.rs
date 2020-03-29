@@ -1,6 +1,7 @@
 use super::{Shape, ShapeType, Base, Index, Scanner, Costs};
 use super::materialize::MaterializeResult;
 use super::super::refs;
+use super::super::quad::QuadStore;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,14 +10,14 @@ use std::cmp::Ordering;
 use std::fmt;
 
 pub struct Sort {
-    namer: Rc<dyn refs::Namer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     sub_it: Rc<RefCell<dyn Shape>>,
 }
 
 impl Sort {
-    pub fn new(namer: Rc<dyn refs::Namer>, sub_it: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<Sort>> {
+    pub fn new(qs: Rc<RefCell<dyn QuadStore>>, sub_it: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<Sort>> {
         Rc::new(RefCell::new(Sort {
-            namer,
+            qs,
             sub_it
         }))
     }
@@ -32,7 +33,7 @@ impl fmt::Display for Sort {
 
 impl Shape for Sort {
     fn iterate(&self) -> Rc<RefCell<dyn Scanner>> {
-        SortNext::new(self.namer.clone(), self.sub_it.borrow().iterate())
+        SortNext::new(self.qs.clone(), self.sub_it.borrow().iterate())
     }
 
     fn lookup(&self) -> Rc<RefCell<dyn Index>> {
@@ -98,7 +99,7 @@ impl Eq for SortValue {}
 
 
 struct SortNext {
-    namer: Rc<dyn refs::Namer>,
+    qs: Rc<RefCell<dyn QuadStore>>,
     sub_it: Rc<RefCell<dyn Scanner>>,
     ordered: Option<Vec<SortValue>>,
     result: Option<MaterializeResult>,
@@ -108,9 +109,9 @@ struct SortNext {
 }
 
 impl SortNext {
-    fn new(namer: Rc<dyn refs::Namer>, sub_it: Rc<RefCell<dyn Scanner>>) -> Rc<RefCell<SortNext>> {
+    fn new(qs: Rc<RefCell<dyn QuadStore>>, sub_it: Rc<RefCell<dyn Scanner>>) -> Rc<RefCell<SortNext>> {
        Rc::new(RefCell::new(SortNext {
-           namer,
+           qs,
            sub_it,
            ordered: None,
            result: None,
@@ -170,7 +171,7 @@ impl Scanner for SortNext {
         }
 
         if self.ordered.is_none() {
-            let v = get_sorted_values(ctx, &self.namer, &self.sub_it);
+            let v = get_sorted_values(ctx, &self.qs, &self.sub_it);
             if let Err(e) = v {
                 self.err = Some(e);
                 return false
@@ -192,12 +193,12 @@ impl Scanner for SortNext {
     }
 }
 
-fn get_sorted_values(ctx: &Context, namer: &Rc<dyn refs::Namer>, it: &Rc<RefCell<dyn Scanner>>) -> Result<Vec<SortValue>, String> {
+fn get_sorted_values(ctx: &Context, qs: &Rc<RefCell<dyn QuadStore>>, it: &Rc<RefCell<dyn Scanner>>) -> Result<Vec<SortValue>, String> {
     let mut v:Vec<SortValue> = Vec::new();
 
     while it.borrow_mut().next(ctx) {
         let id = it.borrow().result().unwrap();
-        let name = namer.name_of(&id).unwrap();
+        let name = qs.borrow().name_of(&id).unwrap();
         let string = name.to_string();
         let mut tags = HashMap::new();
         it.borrow().tag_results(&mut tags);

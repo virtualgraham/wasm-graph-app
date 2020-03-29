@@ -431,3 +431,127 @@ impl Morphism for HasShapeMorphism {
 }
 
 //////////////////////////////////////////////////////////
+
+pub struct LimitMorphism {
+    limit: i64
+}
+
+impl LimitMorphism {
+    pub fn new(limit: i64) -> Rc<dyn Morphism> {
+        Rc::new(LimitMorphism {
+            limit
+        })
+    }
+}
+
+impl Morphism for LimitMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (LimitMorphism::new(self.limit), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("LimitMorphism apply()");
+
+        if self.limit <= 0 {
+            return (shape, None)
+        }
+
+        ( 
+            Rc::new(RefCell::new(Page{from: shape, limit: self.limit, skip: 0})), 
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct SkipMorphism {
+    offset: i64
+}
+
+impl SkipMorphism {
+    pub fn new(offset: i64) -> Rc<dyn Morphism> {
+        Rc::new(SkipMorphism {
+            offset
+        })
+    }
+}
+
+impl Morphism for SkipMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (SkipMorphism::new(self.offset), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("SkipMorphism apply()");
+
+        if self.offset == 0 {
+            return (shape, None)
+        }
+
+        ( 
+            Rc::new(RefCell::new(Page{from: shape, limit: 0, skip: self.offset})), 
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct OrderMorphism ();
+
+impl OrderMorphism {
+    pub fn new() -> Rc<dyn Morphism> {
+        Rc::new(OrderMorphism())
+    }
+}
+
+impl Morphism for OrderMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (OrderMorphism::new(), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("OrderMorphism apply()");
+        ( 
+            Rc::new(RefCell::new(Sort{from: shape})), 
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct SaveMorphism {
+    via: Via,
+    tag: String,
+    rev: bool,
+    opt: bool
+}
+
+impl SaveMorphism {
+    pub fn new(via: Via, tag: String, rev: bool, opt: bool) -> Rc<dyn Morphism> {
+        Rc::new(SaveMorphism {
+            via,
+            tag,
+            rev,
+            opt
+        })
+    }
+}
+
+impl Morphism for SaveMorphism {
+    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (SaveMorphism::new(self.via.clone(), self.tag.clone(), self.rev, self.opt), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("SaveMorphism apply()");
+        ( 
+            save_via_labels(shape, self.via.as_shape(), ctx.label_set.clone(), self.tag.clone(), self.rev, self.opt), 
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////

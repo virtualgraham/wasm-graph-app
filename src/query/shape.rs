@@ -26,7 +26,9 @@ pub enum ShapeType<'a> {
     IteratorShape,
     Filter(&'a mut Filter),
     Except,
-    Unique
+    Unique,
+    Page,
+    Sort
 }
 
 
@@ -41,13 +43,13 @@ pub trait Optimizer{
     fn quad_store(&self) -> Option<Rc<RefCell<dyn QuadStore>>>;
 }
 
-pub trait Composite {
-    fn simplify(&self) -> Rc<RefCell<dyn Shape>>;
-}
+// pub trait Composite {
+//     fn simplify(&self) -> Rc<RefCell<dyn Shape>>;
+// }
 
-pub trait WalkFunc {
-    fn walk(&self, shape: Rc<RefCell<dyn Shape>>) -> bool;
-}
+// pub trait WalkFunc {
+//     fn walk(&self, shape: Rc<RefCell<dyn Shape>>) -> bool;
+// }
 
 
 struct ResolveValues {
@@ -66,6 +68,9 @@ impl Optimizer for ResolveValues {
         return Some(self.qs.clone())
     }
 }
+
+
+
 
 ///////////////////////////////////////////////
 
@@ -340,6 +345,13 @@ impl QuadFilter {
             values
         }))
     }
+
+    pub fn new_struct(dir: Direction, values: Option<Rc<RefCell<dyn Shape>>>) -> QuadFilter{
+       QuadFilter {
+            dir,
+            values
+       }
+    }
 }
 
 impl Shape for QuadFilter {
@@ -380,8 +392,8 @@ impl Shape for QuadFilter {
 pub struct Quads(pub Vec<QuadFilter>);
 
 impl Quads {
-    fn new() -> Rc<RefCell<Quads>> {
-        Rc::new(RefCell::new(Quads(Vec::new())))
+    fn new(filters: Vec<QuadFilter>) -> Rc<RefCell<Quads>> {
+        Rc::new(RefCell::new(Quads(filters)))
     }
 
     fn interset(&mut self, mut q: Vec<QuadFilter>) {
@@ -579,18 +591,40 @@ pub struct IntersectOpt {
 
 impl IntersectOpt {
     pub fn add(&mut self, arr: Vec<Rc<RefCell<dyn Shape>>>) {
+        self.sub.0.extend(arr.iter().map(|x| x.clone()));
 
     }
 
     pub fn add_optional(&mut self, arr: Vec<Rc<RefCell<dyn Shape>>>) {
-
+        self.opt.extend(arr.iter().map(|x| x.clone()));
     }
 }
 
 impl Shape for IntersectOpt {
-    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
-        // TODO: Implement
-        return iterator::Null::new()
+    fn build_iterator(& self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        let self_sub = if self.sub.0.is_empty() {
+            if self.opt.is_empty() {
+                return iterator::Null::new() 
+            }
+            Intersect(vec![AllNodes::new()])
+        } else {
+            self.sub.clone()
+        };
+
+        let sub:Vec<Rc<RefCell<dyn iterator::Shape>>> = self_sub.0.iter().map(|s| s.borrow().build_iterator(qs.clone())).collect();
+        let opt:Vec<Rc<RefCell<dyn iterator::Shape>>> = self.opt.iter().map(|s| s.borrow().build_iterator(qs.clone())).collect();
+
+        if sub.len() == 1 && opt.len() == 0 {
+            return sub[0].clone()
+        }
+        
+        let it = iterator::and::And::new(sub);
+        
+        for sit in opt {
+            it.borrow_mut().add_optional_iterator(sit);
+        }
+
+        return it
     }
 
     fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
@@ -637,6 +671,74 @@ impl Shape for Except {
 }
 
 ///////////////////////////////////////////////
+
+
+#[derive(Clone)]
+pub struct Page {
+    pub from: Rc<RefCell<dyn Shape>>,
+    pub skip: i64,
+    pub limit: i64
+}
+
+impl Shape for Page {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        if let ShapeType::Null = self.from.borrow_mut().shape_type() {
+            return iterator::Null::new() 
+        }
+
+        let mut it = self.from.borrow_mut().build_iterator(qs);
+
+        if self.skip > 0 {
+            it = iterator::skip::Skip::new(it, self.skip);
+        }
+        if self.limit > 0 {
+            it = iterator::limit::Limit::new(it, self.limit);
+        }
+
+        return it
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        // TODO: Implement
+        return None
+    }
+
+    fn shape_type(&mut self) -> ShapeType {
+        ShapeType::Page
+    }
+}
+
+///////////////////////////////////////////////
+
+
+#[derive(Clone)]
+pub struct Sort {
+    pub from: Rc<RefCell<dyn Shape>>,
+}
+
+impl Shape for Sort {
+    fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+        if let ShapeType::Null = self.from.borrow_mut().shape_type() {
+            return iterator::Null::new() 
+        }
+
+        let it = self.from.borrow_mut().build_iterator(qs.clone());
+
+        return iterator::sort::Sort::new(qs.clone(), it)
+    }
+
+    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+        // TODO: Implement
+        return None
+    }
+
+    fn shape_type(&mut self) -> ShapeType {
+        ShapeType::Sort
+    }
+}
+
+///////////////////////////////////////////////
+
 
 pub trait ValueFilter {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>, shape: Rc<RefCell<dyn iterator::Shape>>) -> Rc<RefCell<dyn iterator::Shape>>;
@@ -794,6 +896,31 @@ impl Shape for Filter {
 
 ///////////////////////////////////////////////
 
+pub fn save_via_labels(from: Rc<RefCell<dyn Shape>>, via: Rc<RefCell<dyn Shape>>, labels: Option<Rc<RefCell<dyn Shape>>>, tag: String, rev: bool, opt: bool) -> Rc<RefCell<dyn Shape>> {
+    let nodes = Save::new(vec![tag], Some(AllNodes::new()));
+    
+    let start = if rev { Direction::Object } else { Direction::Subject };
+    let goal = if rev { Direction::Subject } else { Direction::Object };
+
+    let quads = Quads::new(vec![
+        QuadFilter::new_struct(goal, Some(nodes)),
+        QuadFilter::new_struct(Direction::Predicate, Some(via)),
+    ]);
+
+    if let Some(l) = labels {
+        if let ShapeType::AllNodes = l.borrow_mut().shape_type() {
+            quads.borrow_mut().0.push(QuadFilter::new_struct(Direction::Label, Some(l.clone())));
+        }
+    }
+
+    let save = NodesFrom::new(start, quads);
+
+    if opt {
+        return interset_optional(from, save)
+    } else {
+        return intersect_shapes(from, save)
+    }
+}
 
 pub fn interset_optional(main: Rc<RefCell<dyn Shape>>, opt: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>  {
     let mut optional:Vec<Rc<RefCell<dyn Shape>>> = match opt.borrow_mut().shape_type() {
@@ -818,7 +945,7 @@ pub fn interset_optional(main: Rc<RefCell<dyn Shape>>, opt: Rc<RefCell<dyn Shape
             }))
         },
         ShapeType::IntersectOpt(io) => {
-            io.opt.append(&mut optional);
+            optional.iter().for_each(|x| io.opt.push(x.clone()));
             return main.clone()
         },
         _ => {
@@ -941,7 +1068,7 @@ pub fn has_labels(from: Rc<RefCell<dyn Shape>>, via: Rc<RefCell<dyn Shape>>, nod
     let start = if rev { Direction::Object } else { Direction::Subject };
     let goal = if rev { Direction::Subject } else { Direction::Object };
 
-    let quads = Quads::new();
+    let quads = Quads::new(Vec::new());
 
     match nodes.borrow_mut().shape_type() {
         ShapeType::AllNodes => {},

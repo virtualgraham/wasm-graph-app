@@ -12,11 +12,11 @@ pub struct Skip {
 }
 
 impl Skip {
-    pub fn new(primary_it: Rc<RefCell<dyn Shape>>, skip: i64) -> Skip {
-        Skip {
+    pub fn new(primary_it: Rc<RefCell<dyn Shape>>, skip: i64) -> Rc<RefCell<Skip>> {
+        Rc::new(RefCell::new(Skip {
             skip,
             primary_it
-        }
+        }))
     }
 }
 
@@ -101,10 +101,10 @@ impl Base for SkipNext {
 
     fn next_path(&mut self, ctx: &Context) -> bool {
         while self.skipped < self.skip {
-            self.skipped += 1;
             if !self.primary_it.borrow_mut().next_path(ctx) {
                 return false
             }
+            self.skipped += 1;
         }
         return self.primary_it.borrow_mut().next_path(ctx)
     }
@@ -124,15 +124,14 @@ impl Scanner for SkipNext {
             if !self.primary_it.borrow_mut().next(ctx) {
                 return false
             }
+            self.skipped += 1;
         }
         if self.primary_it.borrow_mut().next(ctx) {
             return true
         }
         return false
     }
-
 }
-
 
 
 struct SkipContains {
@@ -204,13 +203,13 @@ impl Index for SkipContains {
                     return false
                 }
                 self.skipped += 1;
-            }
-
-            while self.skipped <= self.skip {
-                if !self.primary_it.borrow_mut().next_path(ctx) {
-                    return false;
+            
+                while self.skipped <= self.skip {
+                    if !self.primary_it.borrow_mut().next_path(ctx) {
+                        return false;
+                    }
+                    self.skipped += 1;
                 }
-                self.skipped += 1;
             }
         }
 

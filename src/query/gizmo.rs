@@ -13,7 +13,8 @@ use crate::graph::refs::Ref;
 
 
 pub fn new_memory_graph() -> GraphWrapper {
-    let qs = Rc::new(RefCell::new(memstore::quadstore::MemStore::new()));
+    //let qs = Rc::new(RefCell::new(memstore::quadstore::MemStore::new()));
+    let qs = Rc::new(RefCell::new(graphmock::Store::new()));
 
     let s = Rc::new(RefCell::new(Session {
         ctx: Rc::new(RefCell::new(Context::background())),
@@ -25,25 +26,37 @@ pub fn new_memory_graph() -> GraphWrapper {
     let g = Graph::new(s.clone());
 
     GraphWrapper {
-        g,
-        s
+        graph: g,
+        session: s
     }
 }
 
 
 pub struct GraphWrapper {
-    pub g: Graph,
-    pub s: Rc<RefCell<Session>>
+    pub graph: Graph,
+    pub session: Rc<RefCell<Session>>
 }
 
 
 impl GraphWrapper {
     pub fn graph(&self) -> Graph {
-        return self.g.clone();
+        return self.graph.clone();
     }
 
     pub fn g(&self) -> Graph {
-        return self.g.clone();
+        return self.graph.clone();
+    }
+
+    pub fn write(&self, quads: Vec<Quad>) {
+        self.session.borrow().write(quads)
+    }
+
+    pub fn read(&self) -> Vec<Quad> {
+        self.session.borrow().read()
+    }
+
+    pub fn delete(&self, quads: Vec<Quad>) {
+        self.session.borrow().delete(quads)
     }
 }
 
@@ -56,18 +69,18 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn write(&self, quads: Vec<Quad>) {
+    fn write(&self, quads: Vec<Quad>) {
         for quad in &quads {
             self.qw.add_quad(quad.clone()).unwrap();
         }
     }
 
-    pub fn read(&self) -> Vec<Quad> {
+    fn read(&self) -> Vec<Quad> {
         // TODO: implement
         vec![Quad::new("a", "b", "c", "d")]
     }
 
-    pub fn delete(&self, quads: Vec<Quad>) {
+    fn delete(&self, quads: Vec<Quad>) {
         // TODO: implement
     }
 
@@ -165,6 +178,11 @@ impl Path {
     pub fn all_values(&mut self) -> impl Iterator<Item = Value> {
         let limit = self.session.borrow().limit;
         self.get_limit_values(limit)
+    }
+
+    pub fn count(&mut self) -> i64 {
+        let it = self.build_iterator_tree();
+        self.session.borrow_mut().run_each_iterator(it).count() as i64
     }
 
 
@@ -347,33 +365,47 @@ impl Path {
         self.clone()
     }
 
+
     ///////////////////////////
     // Save(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save(&mut self, predicate: String, tag: String) -> Path {
+    pub fn save<V: Into<SaveVia>, T: Into<Tag>>(&mut self, via: V, tag: T) -> Path {
+        let via:SaveVia = via.into();
+        let tag = save_validate(&via, &tag.into());
+        self.path.save(via.to_via(), tag, false, false);
         self.clone()
     }
 
     ///////////////////////////
     // SaveR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_r(&mut self, predicate: String, tag: String) -> Path {
+    pub fn save_r<V: Into<SaveVia>, T: Into<Tag>>(&mut self, via: V, tag: T) -> Path {
+        let via:SaveVia = via.into();
+        let tag = save_validate(&via, &tag.into());
+        self.path.save(via.to_via(), tag, true, false);
         self.clone()
     }
 
     ///////////////////////////
     // SaveOpt(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt(&mut self, predicate: String, tag: String) -> Path {
+    pub fn save_opt<V: Into<SaveVia>, T: Into<Tag>>(&mut self, via: V, tag: T) -> Path {
+        let via:SaveVia = via.into();
+        let tag = save_validate(&via, &tag.into());
+        self.path.save(via.to_via(), tag, false, true);
         self.clone()
     }
 
     ///////////////////////////
     // SaveOptR(predicate: String, tag: String)
     ///////////////////////////
-    pub fn save_opt_r(&mut self, predicate: String, tag: String) -> Path {
+    pub fn save_opt_r<V: Into<SaveVia>, T: Into<Tag>>(&mut self, via: V, tag: T) -> Path {
+        let via:SaveVia = via.into();
+        let tag = save_validate(&via, &tag.into());
+        self.path.save(via.to_via(), tag, true, true);
         self.clone()
     }
+
 
     ///////////////////////////
     // Except(path: Path)
@@ -460,14 +492,16 @@ impl Path {
     ///////////////////////////
     // Limit(limit: Number)
     ///////////////////////////
-    pub fn limit(&mut self, limit: i32) -> Path {
+    pub fn limit(&mut self, limit: i64) -> Path {
+        self.path.limit(limit);
         self.clone()
     }
 
     ///////////////////////////
     // Skip(offset: Number)
     ///////////////////////////
-    pub fn skip(&mut self, offset: i32) -> Path {
+    pub fn skip(&mut self, offset: i64) -> Path {
+        self.path.skip(offset);
         self.clone()
     }
 
@@ -475,7 +509,27 @@ impl Path {
     // Order()
     ///////////////////////////
     pub fn order(&mut self) -> Path {
+        self.path.order();
         self.clone()
+    }
+}
+
+fn save_validate(via: &SaveVia, tag: &Tag) -> String {
+    if let SaveVia::Value(v) = via {
+        if let Value::Undefined = v {
+            panic!("must specify a predicate")
+        }
+    }
+
+    if let Tag::Some(t) = tag {
+        if !t.is_empty() {
+            return t.clone();
+        } 
+    }
+
+    match via {
+        SaveVia::Path(_) => panic!("must specify a tag name when saving a path"),
+        SaveVia::Value(v) => v.to_string()
     }
 }
 
@@ -694,6 +748,78 @@ impl From<Vec<Rc<dyn shape::ValueFilter>>> for ValueFilters {
         }
     }
 }
+
+
+#[derive(Clone)]
+pub enum Tag {
+    None,
+    Some(String),
+}
+
+impl From<Option<String>> for Tag {
+    fn from(v: Option<String>) -> Self {
+        match v {
+            Some(v) => Tag::Some(v),
+            None => Tag::None
+        }
+    }
+}
+
+impl From<String> for Tag {
+    fn from(v: String) -> Self {
+        Tag::Some(v)
+    }
+}
+
+impl From<&str> for Tag {
+    fn from(v: &str) -> Self {
+        Tag::Some(v.into())
+    }
+}
+
+
+
+
+#[derive(Clone)]
+pub enum SaveVia {
+    Value(Value),
+    Path(path::Path),
+}
+
+impl SaveVia {
+    pub fn to_via(self) -> path::Via {
+        return match self {
+            SaveVia::Path(path) => path::Via::Path(path),
+            SaveVia::Value(value) => path::Via::Values(vec![value])
+        };
+    }
+}
+
+
+impl From<String> for SaveVia {
+    fn from(v: String) -> Self {
+        SaveVia::Value(v.into())
+    }
+}
+
+impl From<&str> for SaveVia {
+    fn from(v: &str) -> Self {
+        SaveVia::Value(v.into())
+    }
+}
+
+impl From<Value> for SaveVia {
+    fn from(v: Value) -> Self {
+        SaveVia::Value(v)
+    }
+}
+
+impl From<path::Path> for SaveVia {
+    fn from(p: path::Path) -> SaveVia {
+        SaveVia::Path(p)
+    }
+}
+
 
 
 pub fn lt<V: Into<Value>>(v: V) -> Rc<dyn shape::ValueFilter> {

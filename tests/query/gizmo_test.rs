@@ -12,31 +12,30 @@ fn sort_and_compare(a:&mut Vec<String>, b:&mut Vec<String>) -> bool {
 
 #[test]
 fn simple_query_tests() {
-    let mut simple_graph = gizmo::new_memory_graph();
 
-    {
-        let session = simple_graph.s.borrow_mut();
+    let simple_graph = gizmo::new_memory_graph();
 
-        session.write(vec![Quad::new("<alice>", "<follows>", "<bob>", ())]);
-        session.write(vec![Quad::new("<bob>", "<follows>", "<fred>", ())]);
-        session.write(vec![Quad::new("<bob>", "<status>", "cool_person", ())]);
+    simple_graph.write(vec![Quad::new("<alice>", "<follows>", "<bob>", ())]);
+    simple_graph.write(vec![Quad::new("<bob>", "<follows>", "<fred>", ())]);
+    simple_graph.write(vec![Quad::new("<bob>", "<status>", "cool_person", ())]);
 
-        session.write(vec![Quad::new("<dani>", "<follows>", "<bob>", ())]);
-        session.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", ())]);
-        session.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", ())]);
+    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<bob>", ())]);
+    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", ())]);
+    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", ())]);
 
-        session.write(vec![Quad::new("<dani>", "<follows>", "<greg>", ())]);
-        session.write(vec![Quad::new("<dani>", "<status>", "cool_person", ())]);
-        session.write(vec![Quad::new("<emily>", "<follows>", "<fred>", ())]);
+    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<greg>", ())]);
+    simple_graph.write(vec![Quad::new("<dani>", "<status>", "cool_person", ())]);
+    simple_graph.write(vec![Quad::new("<emily>", "<follows>", "<fred>", ())]);
 
-        session.write(vec![Quad::new("<fred>", "<follows>", "<greg>", ())]);
-        session.write(vec![Quad::new("<greg>", "<status>", "cool_person", ())]);
-        session.write(vec![Quad::new("<predicates>", "<are>", "<follows>", ())]);
+    simple_graph.write(vec![Quad::new("<fred>", "<follows>", "<greg>", ())]);
+    simple_graph.write(vec![Quad::new("<greg>", "<status>", "cool_person", ())]);
+    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<follows>", ())]);
 
-        session.write(vec![Quad::new("<predicates>", "<are>", "<status>", ())]);
-        session.write(vec![Quad::new("<emily>", "<status>", "smart_person", ())]);
-        session.write(vec![Quad::new("<greg>", "<status>", "smart_person", ())]);
-    }
+    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<status>", ())]);
+    simple_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", ())]);
+    simple_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", ())]);
+
+  
 
     let g = simple_graph.g();
 
@@ -63,21 +62,21 @@ fn simple_query_tests() {
     // use .getLimit
     ///////////////////////
 
-    // let mut r:Vec<String> = g
-    //     .v(None)
-    //     .get_limit_values(5)
-    //     .map(|v| v.to_string()).collect();
-    // let mut f:Vec<String> = vec![
-    //     "<alice>".into(),
-    //     "<bob>".into(),
-    //     "<follows>".into(),
-    //     "<fred>".into(),
-    //     "<status>".into()
-    // ];
-    // r.sort();
-    // f.sort();
+    let mut r:Vec<String> = g
+        .v(None)
+        .get_limit_values(5)
+        .map(|v| v.to_string()).collect();
+    let mut f:Vec<String> = vec![
+        "<alice>".into(),
+        "<bob>".into(),
+        "<follows>".into(),
+        "<fred>".into(),
+        "<status>".into()
+    ];
+    r.sort();
+    f.sort();
 
-    // assert_eq!(r, f);
+    assert_eq!(r, f);
 
 
     /////////////////////////
@@ -590,6 +589,113 @@ fn simple_query_tests() {
         "<dani>".into(),
         "<emily>".into(),
         "<fred>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // use Limit
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<status>", "cool_person")
+        .limit(2)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<bob>".into(),
+        "<dani>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // use Skip
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<status>", "cool_person")
+        .skip(2)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<greg>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // use Skip and Limit
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .has("<status>", "cool_person")
+        .skip(1)
+        .limit(1)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<dani>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show Count
+    /////////////////////////
+
+    let  c = g.v(None)
+        .has("<status>", None)
+        .count();
+
+    assert_eq!(c, 5);
+
+    /////////////////////////
+    // show a simple save
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .save("<status>", "somecool")
+        .all().map(|x| x["somecool"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "cool_person".into(),
+        "cool_person".into(),
+        "cool_person".into(),
+        "smart_person".into(),
+        "smart_person".into(),
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a simple save optional
+    /////////////////////////
+
+    // let mut r:Vec<String> = g.v(vec!["<bob>", "<charle>"])
+    //     .out("<follows>", None)
+    //     .save_opt("<status>", "somecool")
+    //     .all().map(|x| x["somecool"].to_string()).collect();
+
+    // let mut f:Vec<String> = vec![
+    //     "cool_person".into(),
+    //     "cool_person".into()
+    // ];
+
+    // assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a simple saveR
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("cool_person")
+        .save_r("<status>", "who")
+        .all().map(|x| x["who"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<greg>".into(),
+        "<dani>".into(),
+        "<bob>".into()
     ];
 
     assert!(sort_and_compare(&mut r, &mut f));

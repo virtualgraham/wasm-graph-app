@@ -1,9 +1,6 @@
-
-
 use crate::graph::value::Value;
 use crate::graph::refs::{Size, Ref, Content};
 use crate::graph::iterator::{Base, Scanner, Index, Shape, Costs, ShapeType};
-use crate::graph::quad::{Direction};
 
 use io_context::Context;
 use std::rc::Rc;
@@ -12,19 +9,19 @@ use std::collections::HashMap;
 use std::fmt;
 
 use std::collections::BTreeMap;
-use super::quadstore::Primitive;
+use super::quadstore::{PrimStore, Primitive};
 use std::ops::Bound::{Excluded, Unbounded};
 
-
+use std::sync::{Arc, RwLock};
 
 pub struct MemStoreAllIterator {
-    all: Rc<RefCell<BTreeMap<i64, Primitive>>>,
+    all: Arc<RwLock<dyn PrimStore>>,
     maxid: i64,
     nodes: bool
 }
 
 impl MemStoreAllIterator {
-    pub fn new(all: Rc<RefCell<BTreeMap<i64, Primitive>>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIterator>> {
+    pub fn new(all: Arc<RwLock<dyn PrimStore>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIterator>> {
   
         Rc::new(RefCell::new(MemStoreAllIterator {
             all,
@@ -45,11 +42,13 @@ impl Shape for MemStoreAllIterator {
     }
 
     fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+        let all = self.all.read().unwrap();
+
         Ok(Costs {
             contains_cost: 1,
             next_cost: 1,
             size: Size {
-                value: self.all.borrow().len() as i64,
+                value: all.len() as i64,
                 exact: true
             }
         })
@@ -80,7 +79,7 @@ impl fmt::Display for MemStoreAllIterator {
 
 
 pub struct MemStoreAllIteratorNext {
-    all: Rc<RefCell<BTreeMap<i64, Primitive>>>,
+    all: Arc<RwLock<dyn PrimStore>>,
     maxid: i64,
     nodes: bool,
     done: bool,
@@ -90,10 +89,7 @@ pub struct MemStoreAllIteratorNext {
 
 
 impl MemStoreAllIteratorNext {
-    pub fn new(all: Rc<RefCell<BTreeMap<i64, Primitive>>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIteratorNext>> {
-        
-
-
+    pub fn new(all: Arc<RwLock<dyn PrimStore>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIteratorNext>> {
         Rc::new(RefCell::new(MemStoreAllIteratorNext {
             all,
             maxid,
@@ -134,19 +130,14 @@ impl Base for MemStoreAllIteratorNext {
 impl Scanner for MemStoreAllIteratorNext {
     fn next(&mut self, ctx: &Context) -> bool {
         
+        if self.done {
+            println!("MemStoreAllIteratorNext called after done");
+            return false
+        }
+
         // TODO: This is ridiculous, there has to be a way to just use a single iterator.
 
-        let a = &*self.all.borrow();
-
-        let q = !self.done && self.cur.is_none();
-
-        let iter:Box<dyn Iterator<Item = (&i64, &Primitive)>> = if q {
-            Box::new(a.iter())
-        } else {
-            Box::new(a.range((Excluded(self.cur.unwrap()), Unbounded)))
-        };
-
-        self.cur = iter.filter(|(k, v)| {
+        let lam = |(k, v):&(&i64, &Primitive)| {
 
             let is_node = v.is_node();
 
@@ -160,8 +151,16 @@ impl Scanner for MemStoreAllIteratorNext {
 
             return false
             
-        }).map(|(k, _)| *k).next();
-        
+        };
+
+        let all = self.all.read().unwrap();
+
+        self.cur = if !self.done && self.cur.is_none() {
+            all.iter().filter(lam).map(|(k, _)| *k).next()
+        } else {
+            all.range((Excluded(self.cur.unwrap()), Unbounded)).filter(lam).map(|(k, _)| *k).next()
+        };
+
         println!("MemStoreAllIteratorNext {:?}", self.cur);
 
         if !self.cur.is_some() {
@@ -183,7 +182,7 @@ impl fmt::Display for MemStoreAllIteratorNext {
 
 
 pub struct MemStoreAllIteratorContains {
-    all: Rc<RefCell<BTreeMap<i64, Primitive>>>,
+    all: Arc<RwLock<dyn PrimStore>>,
     maxid: i64,
     nodes: bool,
     cur: Option<i64>,
@@ -191,7 +190,7 @@ pub struct MemStoreAllIteratorContains {
 }
 
 impl MemStoreAllIteratorContains {
-    pub fn new(all: Rc<RefCell<BTreeMap<i64, Primitive>>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIteratorContains>> {
+    pub fn new(all: Arc<RwLock<dyn PrimStore>>, maxid: i64, nodes: bool) -> Rc<RefCell<MemStoreAllIteratorContains>> {
         Rc::new(RefCell::new(MemStoreAllIteratorContains {
             all,
             maxid,
@@ -235,13 +234,16 @@ impl Index for MemStoreAllIteratorContains {
             return false
         }
 
+        let all = self.all.read().unwrap();
+
         let id = v.key.as_i64();
 
+        // TODO: if id > maxid
         match id {
             Some(i) => {
-                match self.all.borrow().get(&i) {
-                    Some(p) => {
-                        self.cur = Some(p.id);
+                match all.get(&i) {
+                    Some(_) => {
+                        self.cur = Some(i);
                         return true
                     },
                     None => {

@@ -7,5 +7,6 @@ mod or_test;
 mod recursive_test;
 mod resolver_test;
 mod unique_test;
+mod skip_test;
 
 use super::common;

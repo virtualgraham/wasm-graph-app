@@ -118,21 +118,18 @@ impl Base for MemStoreIteratorNext {
 impl Scanner for MemStoreIteratorNext {
     fn next(&mut self, ctx: &Context) -> bool {
 
-         // TODO: This is ridiculous, there has to be a way to just use a single iterator.
+        if self.done {
+            println!("MemStoreAllIteratorNext called after done");
+            return false
+        }
+        
+        // TODO: This is ridiculous, there has to be a way to just use a single iterator.
 
-        let q = !self.done && self.cur.is_none();
-
-        let iter:Box<dyn Iterator<Item = &i64>> = if q {
-            Box::new(self.quad_ids.iter())
+        self.cur = if !self.done && self.cur.is_none() {
+            self.quad_ids.iter().map(|quad_id| *quad_id).next()
         } else {
-            Box::new(
-                self.quad_ids.range(
-                    (Excluded(self.cur.unwrap()), Unbounded)
-                )
-            )
+            self.quad_ids.range((Excluded(self.cur.unwrap()), Unbounded)).map(|quad_id| *quad_id).next()
         };
-
-        self.cur = iter.map(|quad_id| *quad_id).next();
         
         println!("MemStoreIteratorNext {:?}", self.cur);
 
@@ -142,7 +139,6 @@ impl Scanner for MemStoreIteratorNext {
         }
 
         return true
-
     }
 }
 

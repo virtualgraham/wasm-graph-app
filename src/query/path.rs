@@ -140,7 +140,25 @@ impl Path {
         self.stack.push(morphism::HasShapeMorphism::new_has_filter_morphism(via, rev, nodes));
     }
 
-    
+    pub fn skip(&mut self, offset: i64) {
+        self.stack.push(morphism::SkipMorphism::new(offset));
+    }
+
+    pub fn limit(&mut self, limit: i64) {
+        self.stack.push(morphism::LimitMorphism::new(limit));
+    }
+
+    pub fn order(&mut self) {
+        self.stack.push(morphism::OrderMorphism::new());
+    }
+
+    // pub fn count(&mut self) {
+    //     self.stack.push(morphism::CountMorphism::new());
+    // }
+
+    pub fn save(&mut self, via: Via, tag: String, rev: bool, opt: bool) {
+        self.stack.push(morphism::SaveMorphism::new(via, tag, rev, opt));
+    }
 
     ///////
  
@@ -203,6 +221,8 @@ impl iterator::Morphism for MorphismForPath {
         return self.path.clone().shape_from(Rc::new(RefCell::new(IteratorShape{it: shape, sent: false}))).borrow().build_iterator(self.qs.clone())
     }
 }
+
+
 
 
 #[derive(Clone)]
