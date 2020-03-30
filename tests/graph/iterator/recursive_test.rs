@@ -61,7 +61,7 @@ fn test_recursive_next() {
     let mut expected = vec!["bob", "charlie", "dani", "emily"];
     let mut got = Vec::new();
     while r.borrow_mut().next(&ctx) {
-        got.push(r.borrow().result().unwrap().key.to_string());
+        got.push(r.borrow().result().unwrap().key().unwrap().to_string());
     }
 
     expected.sort();
@@ -118,11 +118,11 @@ fn test_recursive_next_path() {
     while r.borrow_mut().next(&ctx) {
         let mut res = HashMap::new();
         r.borrow().tag_results(&mut res);
-        got.push(res[&"person".to_string()].key.to_string());
+        got.push(res[&"person".to_string()].key().unwrap().to_string());
         while r.borrow_mut().next_path(&ctx) {
             let mut res = HashMap::new();
             r.borrow().tag_results(&mut res);
-            got.push(res[&"person".to_string()].key.to_string());
+            got.push(res[&"person".to_string()].key().unwrap().to_string());
         }
     }
 

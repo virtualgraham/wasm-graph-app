@@ -137,14 +137,28 @@ impl RecursiveNext {
     }
 
     fn get_base_value(&self, val: &refs::Ref) -> refs::Ref {
-        let mut at = self.seen.get(&val.key).unwrap();
-        while at.depth != 1 {
-            if at.depth == 0 {
-                panic!("seen chain is broken");
+
+        if let Some(k) = val.key() {
+
+            let mut at = self.seen.get(k).unwrap();
+
+            while at.depth != 1 {
+                if at.depth == 0 {
+                    panic!("seen chain is broken");
+                }
+                
+                let v = &at.val.as_ref().unwrap().key().unwrap(); // TODO: FIX THIS
+                at = self.seen.get(v).unwrap();
+
             }
-            at = self.seen.get(&at.val.as_ref().unwrap().key).unwrap();
+
+            return at.val.as_ref().unwrap().clone() // TODO: FIX THIS
+
+        } else {
+            return refs::Ref::none()
         }
-        return at.val.as_ref().unwrap().clone()
+
+
     }
 }
 
@@ -166,12 +180,15 @@ impl Base for RecursiveNext {
            tags.insert(tag.clone(), p);
         }
         
-        if self.contains_value.is_some() {
-            let paths = self.path_map.get(&self.contains_value.as_ref().unwrap().key);
-            if paths.is_some() && !paths.unwrap().is_empty() {
-                for (k, v) in &paths.unwrap()[self.path_index] {
-                    tags.insert(k.clone(), v.clone());
-                } 
+        if let Some(cv) = &self.contains_value {
+            let key = cv.key();
+            if let Some(ky) = key {
+                let paths = self.path_map.get(ky);
+                if paths.is_some() && !paths.unwrap().is_empty() {
+                    for (k, v) in &paths.unwrap()[self.path_index] {
+                        tags.insert(k.clone(), v.clone());
+                    } 
+                }
             }
         }
         
@@ -185,8 +202,11 @@ impl Base for RecursiveNext {
 
     #[allow(unused)]
     fn next_path(&mut self, ctx: &Context) -> bool {
+        let key = &self.contains_value.as_ref().unwrap().key();
+        if key.is_none() { return false }
+
         let a = self.path_index + 1;
-        let b = self.path_map.get(&self.contains_value.as_ref().unwrap().key).unwrap().len();
+        let b = self.path_map.get(key.as_ref().unwrap()).unwrap().len();
         if a >= b {
             return false
         }
@@ -219,24 +239,29 @@ impl Scanner for RecursiveNext {
         if self.depth == 0 {
             while self.sub_it.borrow_mut().next(ctx) {
                 let res = self.sub_it.borrow().result().unwrap();
+
+                if res.key().is_none() { continue }
+
+                let key = res.key().unwrap();
+
                 self.depth_cache.push(self.sub_it.borrow().result().unwrap());
                 let mut tags:HashMap<String, refs::Ref> = HashMap::new();
                 self.sub_it.borrow().tag_results(&mut tags);
 
-                if !self.path_map.contains_key(&res.key) {
-                    self.path_map.insert(res.key.clone(), vec![tags]);
+                if !self.path_map.contains_key(&key) {
+                    self.path_map.insert(key.clone(), vec![tags]);
                 } else {
-                    self.path_map.get_mut(&res.key).unwrap().push(tags);
+                    self.path_map.get_mut(&key).unwrap().push(tags);
                 }
 
                 while self.sub_it.borrow_mut().next_path(ctx) {
                     let mut tags:HashMap<String, refs::Ref> = HashMap::new();
                     self.sub_it.borrow().tag_results(&mut tags);
 
-                    if !self.path_map.contains_key(&res.key) {
-                        self.path_map.insert(res.key.clone(), vec![tags]);
+                    if !self.path_map.contains_key(&key) {
+                        self.path_map.insert(key.clone(), vec![tags]);
                     } else {
-                        self.path_map.get_mut(&res.key).unwrap().push(tags);
+                        self.path_map.get_mut(&key).unwrap().push(tags);
                     }
                 }
             }
@@ -259,14 +284,16 @@ impl Scanner for RecursiveNext {
                 continue
             }
             let val = self.next_it.borrow().result().unwrap();
+            if val.key().is_none() { continue }
+
             let mut results:HashMap<String, refs::Ref> = HashMap::new();
             self.next_it.borrow().tag_results(&mut results);
-            if !self.seen.contains_key(&val.key) {
+            if !self.seen.contains_key(&val.key().unwrap()) {
 
                 let base = results.get(RECURSEIVE_BASE_TAG).unwrap().clone();
                 results.remove(RECURSEIVE_BASE_TAG);
                 
-                self.seen.insert(val.key.clone(), SeenAt {
+                self.seen.insert(val.key().unwrap().clone(), SeenAt {
                     val: Some(base),
                     depth: self.depth,
                     tags: results
@@ -333,8 +360,10 @@ impl Index for RecursiveContains {
     fn contains(&mut self, ctx: &Context, val:&refs::Ref) -> bool {
         self.next.borrow_mut().path_index = 0;
 
-        let depth = self.next.borrow_mut().seen.get(&val.key).map(|x| x.depth);
-        let tags = self.next.borrow_mut().seen.get(&val.key).map(|x| x.tags.clone());
+        if val.key().is_none() { return false }
+
+        let depth = self.next.borrow_mut().seen.get(&val.key().unwrap()).map(|x| x.depth);
+        let tags = self.next.borrow_mut().seen.get(&val.key().unwrap()).map(|x| x.tags.clone());
 
         if depth.is_some() && tags.is_some() {
             let contains_value = Some(self.next.borrow().get_base_value(val));
@@ -345,7 +374,10 @@ impl Index for RecursiveContains {
             return true
         }
         while self.next.borrow_mut().next(ctx) {
-            if self.next.borrow().result().unwrap().key == val.key {
+            let n = self.next.borrow().result().unwrap();
+            let nkey = n.key();
+            if nkey.is_none() { return false }
+            if nkey.unwrap() == val.key().unwrap() {
                 return true
             }
         }

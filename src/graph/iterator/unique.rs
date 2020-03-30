@@ -122,10 +122,10 @@ impl Scanner for UniqueNext {
     fn next(&mut self, ctx: &Context) -> bool {
         while self.sub_it.borrow_mut().next(ctx) {
             let curr = self.sub_it.borrow().result();
-            let key = curr.as_ref().unwrap().key.clone();
-            if !self.seen.contains(&key) {
-                self.result = curr;
-                self.seen.insert(key);
+            let key = curr.as_ref().unwrap().key().clone();
+            if key.is_some() && !self.seen.contains(key.unwrap()) {
+                self.result = curr.clone();
+                self.seen.insert(key.unwrap().clone());
                 return true
             }
         }

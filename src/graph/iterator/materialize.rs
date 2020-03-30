@@ -127,26 +127,28 @@ impl MaterializeNext {
                 break
             }
             let id = self.next.borrow().result().unwrap();
-            let val = &id.key;
+            let val = id.key();
 
-            let ok = self.contains_map.contains_key(&val);
-            if !ok {
-                self.contains_map.insert(val.clone(), self.values.len());
-                self.values.push(Vec::new());
-            }
-            let index = self.contains_map.get(&val);
-            let mut tags: HashMap<String, refs::Ref> = HashMap::new();
-            self.next.as_ref().borrow().tag_results(&mut tags);
-            self.values[*index.unwrap()].push(MaterializeResult{id: id.clone(), tags});
-            while self.next.borrow_mut().next_path(ctx) {
-                i += 1;
-                if i > MATERIALIZE_LIMIT {
-                    self.aborted = true;
-                    break
+            if let Some(v) = val {
+                if !self.contains_map.contains_key(v) {
+                    self.contains_map.insert(v.clone(), self.values.len());
+                    self.values.push(Vec::new());
                 }
+                let index = self.contains_map.get(&v);
+
                 let mut tags: HashMap<String, refs::Ref> = HashMap::new();
                 self.next.as_ref().borrow().tag_results(&mut tags);
                 self.values[*index.unwrap()].push(MaterializeResult{id: id.clone(), tags});
+                while self.next.borrow_mut().next_path(ctx) {
+                    i += 1;
+                    if i > MATERIALIZE_LIMIT {
+                        self.aborted = true;
+                        break
+                    }
+                    let mut tags: HashMap<String, refs::Ref> = HashMap::new();
+                    self.next.as_ref().borrow().tag_results(&mut tags);
+                    self.values[*index.unwrap()].push(MaterializeResult{id: id.clone(), tags});
+                }
             }
         }
         self.err = self.next.borrow().err();
@@ -362,7 +364,11 @@ impl Index for MaterializeContains {
             return self.sub.as_ref().unwrap().borrow_mut().contains(ctx, v)
         }
 
-        let i = self.next.borrow_mut().contains_map.get(&v.key).map(|x| x.clone());
+        let i = if let Some(k) = v.key() {
+            self.next.borrow_mut().contains_map.get(k).map(|x| x.clone())
+        } else {
+            None
+        };
 
         if i.is_some() {
             self.next.borrow_mut().index = i;

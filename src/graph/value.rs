@@ -12,7 +12,7 @@ use std::fmt;
 #[derive(Debug, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]
 pub enum Value {
-    Undefined,
+    None,
     Null,
     Bool(bool),
     Number(Number),
@@ -46,7 +46,7 @@ impl Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Undefined => write!(f, "undefined"),
+            Value::None => write!(f, "undefined"),
             Value::Null => write!(f, "null"),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Number(n) => write!(f, "{}", n),
@@ -64,7 +64,7 @@ impl Eq for Value {}
 
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Value::Undefined = self {
+        if let Value::None = self {
             "Value::Undefined".hash(state);
         } else if let Value::Null = self {
             "Value::Null".hash(state);
@@ -153,7 +153,7 @@ impl<'a> From<&'a str> for Value {
 impl<'a> From<()> for Value {
     /// Convert string slice to `Value`
     fn from(_: ()) -> Self {
-        Value::Undefined
+        Value::None
     }
 }
 

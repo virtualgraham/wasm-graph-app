@@ -277,7 +277,7 @@ impl Index for LinksToContains {
                 return false
             },
             None => {
-                panic!("LinksToContains quad_direction not found")
+                return false
             }
         }
     }

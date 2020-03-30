@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use super::morphism;
 use io_context::Context;
-use super::gizmo::Session;
+use crate::query::gizmo;
 
 
 
@@ -118,7 +118,7 @@ impl Path {
                     }
                 }
             }
-            let rev = self.stack[i as usize].reversal(&new_path.base_context);
+            let rev = self.stack[i as usize].reversal(&mut new_path.base_context);
             new_path.stack.push(rev.0);
             i -= 1;
         }
@@ -160,15 +160,31 @@ impl Path {
         self.stack.push(morphism::SaveMorphism::new(via, tag, rev, opt));
     }
 
+    pub fn predicates(&mut self, rev: bool) {
+        self.stack.push(morphism::PredicatesMorphism::new(rev));
+    }
+
+    pub fn save_predicates(&mut self, tag: String, rev: bool) {
+        self.stack.push(morphism::SavePredicatesMorphism::new(tag, rev));
+    }
+
+    pub fn labels(&mut self) {
+        self.stack.push(morphism::LabelsMorphism::new());
+    }
+
+    pub fn label_context_with_tags(&mut self, via: Via, tags: Vec<String>)  {
+        self.stack.push(morphism::LabelContextMorphism::new(via, tags));
+    }
+
     ///////
  
 
     pub fn reverse(&mut self) -> Path {
         let mut new_path = Path::new(self.qs.clone(), Vec::new());
-        let ctx = new_path.base_context.clone();
+        let mut ctx = new_path.base_context.clone();
 
         for x in self.stack.iter().rev() {
-            let (rev_morphism, _) = x.reversal(&ctx); 
+            let (rev_morphism, _) = x.reversal(&mut ctx); 
             new_path.stack.push(rev_morphism);
         }
         
@@ -185,7 +201,7 @@ impl Path {
         let mut ctx = self.base_context.clone();
 
         for m in &self.stack {
-            let r = m.apply(s, &ctx);
+            let r = m.apply(s, &mut ctx);
             s = r.0;
             ctx = match r.1 { Some(c) => c, None => ctx };
         }
@@ -236,7 +252,7 @@ impl Via {
     pub fn as_shape(&self) -> Rc<RefCell<dyn Shape>> {
         return match self {
             Via::None => Rc::new(RefCell::new(AllNodes())),
-            Via::Path(path) => path.clone().shape(),
+            Via::Path(path) => path.shape(),
             Via::Values(values) => Rc::new(RefCell::new(Lookup(values.clone())))
         };
     }
@@ -276,9 +292,9 @@ impl From<Vec<Value>> for Via {
     }
 }
 
-impl From<Path> for Via {
-    fn from(p: Path) -> Self {
-        Via::Path(p)
+impl From<&gizmo::Path> for Via {
+    fn from(p: &gizmo::Path) -> Self {
+        Via::Path(p.clone().path)
     }
 }
 

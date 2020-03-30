@@ -41,7 +41,7 @@ pub trait Namer {
 
 pub fn pre_fetched(v: Value) -> Ref {
     Ref {
-        key: v.clone(),
+        k: v.clone(),
         content: Content::Value(v),
     }
 }
@@ -57,15 +57,32 @@ pub enum Content {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ref {
-    pub key: Value,
+    pub k: Value,
     pub content: Content
 }
 
 impl Ref {
+    pub fn none() -> Ref {
+        Ref {
+            k: Value::None,
+            content: Content::None
+        }
+    }
+
+    // a Ref with key Value::None is used to refer to an exsisting quad but the direction is unassigned
+    // this is often the case with the label direction
+    // using this method helps to ensure we are checking and handling this scenerio properly
+    pub fn key(&self) -> Option<&Value> {
+        if let Value::None = self.k {
+            return None
+        }
+        return Some(&self.k)
+    }
+
     pub fn new_i64_node(v: i64) -> Ref {
         let value = Value::Number(Number::from(v));
         Ref {
-            key: value.clone(),
+            k: value.clone(),
             content: Content::Value(value),
         }
     }

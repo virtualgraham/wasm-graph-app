@@ -13,8 +13,8 @@ use crate::graph::refs::Ref;
 
 
 pub fn new_memory_graph() -> GraphWrapper {
-    //let qs = Rc::new(RefCell::new(memstore::quadstore::MemStore::new()));
-    let qs = Rc::new(RefCell::new(graphmock::Store::new()));
+    let qs = Rc::new(RefCell::new(memstore::quadstore::MemStore::new()));
+    //let qs = Rc::new(RefCell::new(graphmock::Store::new()));
 
     let s = Rc::new(RefCell::new(Session {
         ctx: Rc::new(RefCell::new(Context::background())),
@@ -128,7 +128,7 @@ impl Graph {
 pub struct Path {
     pub session: Rc<RefCell<Session>>,
     finals: bool,
-    path: path::Path
+    pub path: path::Path
 }
 
 impl Path {
@@ -244,7 +244,7 @@ impl Path {
     // FollowRecursive(path: Path, maxDepth: int, tags: Stringp[])
     ///////////////////////////
     pub fn follow_recursive_path<T: Into<Tags>>(&mut self, path: &Path, max_depth: Option<i32>, tags: T) -> Path {
-        let via = path::Via::Path(path.path.clone());
+        let via = path.into();
         let max_depth = match max_depth { Some(d) => d, None => 50 };
         self.path.follow_recursive(via, max_depth, tags.into().to_vec());
         self.clone()
@@ -434,13 +434,15 @@ impl Path {
     // Labels()
     ///////////////////////////
     pub fn labels(&mut self) -> Path {
+        self.path.labels();
         self.clone()
     }
 
     ///////////////////////////
     // InPredicates(tag:String)
     ///////////////////////////
-    pub fn in_predicates(&mut self, tag: String) -> Path {
+    pub fn in_predicates(&mut self) -> Path {
+        self.path.predicates(true);
         self.clone()
     }
 
@@ -448,20 +450,23 @@ impl Path {
     // OutPredicates()
     ///////////////////////////
     pub fn out_predicates(&mut self) -> Path {
+        self.path.predicates(false);
         self.clone()
     }
 
     ///////////////////////////
     // SaveInPredicates(tag:String)
     ///////////////////////////
-    pub fn save_in_predicates(&mut self, tag: String) -> Path {
+    pub fn save_in_predicates<S: Into<String>>(&mut self, tag: S) -> Path {
+        self.path.save_predicates(tag.into(), true);
         self.clone()
     }
 
     ///////////////////////////
     // SaveOutPredicates(tag:String)
     ///////////////////////////
-    pub fn save_out_predicates(&mut self, tag: String) -> Path {
+    pub fn save_out_predicates<S: Into<String>>(&mut self, tag: S) -> Path {
+        self.path.save_predicates(tag.into(), false);
         self.clone()
     }
 
@@ -469,16 +474,11 @@ impl Path {
     ///////////////////////////
     // LabelContext(values: String[], tags: String[])
     ///////////////////////////
-    pub fn label_context_values<T: Into<Tags>>(&mut self, values: Vec<String>, tags: Vec<String>) -> Path {
+    pub fn label_context<V: Into<path::Via>, T: Into<Tags>>(&mut self, labels: V, tags: T) -> Path {
+        self.path.label_context_with_tags(labels.into(), tags.into().to_vec());
         self.clone()
     }
 
-    ///////////////////////////
-    // LabelContext(path: Path, tags: String[])
-    ///////////////////////////
-    pub fn label_context_path<T: Into<Tags>>(&mut self, path: &Path, tags: Vec<String>) -> Path {
-        self.clone()
-    }
 
 
     ///////////////////////////
@@ -516,7 +516,7 @@ impl Path {
 
 fn save_validate(via: &SaveVia, tag: &Tag) -> String {
     if let SaveVia::Value(v) = via {
-        if let Value::Undefined = v {
+        if let Value::None = v {
             panic!("must specify a predicate")
         }
     }
@@ -814,9 +814,9 @@ impl From<Value> for SaveVia {
     }
 }
 
-impl From<path::Path> for SaveVia {
-    fn from(p: path::Path) -> SaveVia {
-        SaveVia::Path(p)
+impl From<&Path> for SaveVia {
+    fn from(p: &Path) -> SaveVia {
+        SaveVia::Path(p.clone().path)
     }
 }
 

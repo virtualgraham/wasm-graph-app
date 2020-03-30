@@ -150,13 +150,11 @@ impl Scanner for HasANext {
                 return true
             },
             None => {
-                panic!("HasANext quad not found");
+                self.result = Some(Ref::none());
+                return true
             }
         }
-
-
     }
-
 }
 
 

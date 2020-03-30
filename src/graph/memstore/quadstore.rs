@@ -51,7 +51,7 @@ impl InternalMemStore {
 
 
     fn resolve_val(&mut self, v: &Value, add: bool) -> Option<i64> {
-        if let Value::Undefined = v {
+        if let Value::None = v {
             return None
         }
         
@@ -80,7 +80,7 @@ impl InternalMemStore {
         // find all value ids for each direction of quad
         for dir in Direction::iterator() {
             let v = q.get(dir);
-            if let Value::Undefined = v {
+            if let Value::None = v {
                 continue
             }
             let vid = self.resolve_val(v, add);
@@ -213,7 +213,17 @@ impl InternalMemStore {
 
 
     fn internal_quad(&self, r: &Ref) -> Option<InternalQuad> {
-        match self.prim.get(r.key.as_i64().as_ref().unwrap()) {
+        let key = if let Some(k) = r.key() { 
+            if let Some(i) = k.as_i64().as_ref() {
+                self.prim.get(i)
+            } else {
+                None
+            }
+        } else { 
+            None 
+        };
+
+        match key {
             Some(p) => {
                 match &p.content {
                     PrimitiveContent::Quad(q) => Some(q.clone()),
@@ -290,13 +300,13 @@ impl Namer for MemStore {
     fn value_of(&self, v: &Value) -> Option<Ref> {
         let datastore = self.store.read().unwrap();
 
-        if let Value::Undefined = v {
+        if let Value::None = v {
             return None
         }
         let id = datastore.vals.get(v);
         match id {
             Some(i) => Some(Ref {
-                key: Value::from(*i),
+                k: Value::from(*i),
                 content: Content::None
             }),
             None => None
@@ -310,7 +320,7 @@ impl Namer for MemStore {
             return Some(v.clone())
         }
 
-        let n = key.key.as_i64();
+        let n = if let Some(k) = key.key() { k.as_i64() } else { None };
 
         if let Some(i) = n {
             return datastore.lookup_val(&i)
@@ -335,7 +345,7 @@ impl QuadStore for MemStore {
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>> {
         let datastore = self.store.read().unwrap();
         
-        let id = r.key.as_i64();
+        let id = if let Some(k) = r.key() { k.as_i64() } else { None };
         
         if let Some(i) = id {
 
@@ -352,7 +362,7 @@ impl QuadStore for MemStore {
     fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String> {
         let datastore = self.store.read().unwrap();
 
-        let id = r.key.as_i64();
+        let id = if let Some(k) = r.key() { k.as_i64() } else { None };
 
         if let Some(i) = id {
             let quad_ids = datastore.index.get(d, &i);
@@ -366,6 +376,7 @@ impl QuadStore for MemStore {
         let datastore = self.store.read().unwrap();
 
         let quad = datastore.internal_quad(r);
+        println!("memstore quad_direction quad {:?}", quad);
         match quad {
             Some(q) => {
                 let id = q.dir(d);
@@ -373,7 +384,7 @@ impl QuadStore for MemStore {
                     return None
                 }
                 return Some(Ref {
-                    key: Value::from(id),
+                    k: Value::from(id),
                     content: Content::None
                 })
             }

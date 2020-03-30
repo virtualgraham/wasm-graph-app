@@ -106,7 +106,7 @@ impl Base for MemStoreAllIteratorNext {
     fn result(&self) -> Option<Ref> {
         match self.cur {
             Some(c) => Some(Ref {
-                key: Value::from(c),
+                k: Value::from(c),
                 content: Content::None
             }),
             None => None
@@ -207,7 +207,7 @@ impl Base for MemStoreAllIteratorContains {
     fn result(&self) -> Option<Ref> {
         match self.cur {
             Some(c) => Some(Ref {
-                key: Value::from(c),
+                k: Value::from(c),
                 content: Content::None
             }),
             None => None
@@ -236,7 +236,7 @@ impl Index for MemStoreAllIteratorContains {
 
         let all = self.all.read().unwrap();
 
-        let id = v.key.as_i64();
+        let id = if let Some(k) = v.key() { k.as_i64() } else { None };
 
         // TODO: if id > maxid
         match id {

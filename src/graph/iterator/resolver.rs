@@ -184,7 +184,9 @@ impl ResolverContains {
 
         for (index, value) in values.iter().enumerate() {
             let node = self.order.get(index).unwrap();
-            self.nodes.insert(value.key.clone(), node.clone());
+            if let Some(k) = value.key() {
+                self.nodes.insert(k.clone(), node.clone());
+            }
         }
 
         self.order = Vec::new();
@@ -232,7 +234,7 @@ impl Index for ResolverContains {
             }
         }
 
-        let has = self.nodes.contains_key(&v.key);
+        let has = v.key().is_some() && self.nodes.contains_key(&v.key().unwrap());
 
         if has {
             self.result = Some(v.clone());

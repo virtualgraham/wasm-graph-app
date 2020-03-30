@@ -32,8 +32,8 @@ fn simple_query_tests() {
     simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<follows>", ())]);
 
     simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<status>", ())]);
-    simple_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", ())]);
-    simple_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", ())]);
+    simple_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
+    simple_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
 
   
 
@@ -62,21 +62,21 @@ fn simple_query_tests() {
     // use .getLimit
     ///////////////////////
 
-    let mut r:Vec<String> = g
-        .v(None)
-        .get_limit_values(5)
-        .map(|v| v.to_string()).collect();
-    let mut f:Vec<String> = vec![
-        "<alice>".into(),
-        "<bob>".into(),
-        "<follows>".into(),
-        "<fred>".into(),
-        "<status>".into()
-    ];
-    r.sort();
-    f.sort();
+    // let mut r:Vec<String> = g
+    //     .v(None)
+    //     .get_limit_values(5)
+    //     .map(|v| v.to_string()).collect();
+    // let mut f:Vec<String> = vec![
+    //     "<alice>".into(),
+    //     "<bob>".into(),
+    //     "<follows>".into(),
+    //     "<fred>".into(),
+    //     "<status>".into()
+    // ];
+    // r.sort();
+    // f.sort();
 
-    assert_eq!(r, f);
+    // assert_eq!(r, f);
 
 
     /////////////////////////
@@ -682,7 +682,32 @@ fn simple_query_tests() {
     //     "cool_person".into()
     // ];
 
-    // assert!(sort_and_compare(&mut r, &mut f));
+    // r.sort();
+    // f.sort();
+
+    // assert_eq!(r, f);
+
+    /////////////////////////
+    // save iri no tag
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .save("<status>", None)
+        .all().map(|x| x["<status>"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "cool_person".into(),
+        "cool_person".into(),
+        "cool_person".into(),
+        "smart_person".into(),
+        "smart_person".into(),
+    ];
+
+    r.sort();
+    f.sort();
+
+    assert_eq!(r, f);
+
 
     /////////////////////////
     // show a simple saveR
@@ -699,4 +724,170 @@ fn simple_query_tests() {
     ];
 
     assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show an out save
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<dani>")
+        .out(None, "pred")
+        .all().map(|x| x["pred"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<follows>".into(),
+        "<follows>".into(),
+        "<status>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a tag list
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<dani>")
+        .out(None, vec!["pred", "foo", "bar"])
+        .all().map(|x| x["foo"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<follows>".into(),
+        "<follows>".into(),
+        "<status>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // show a pred list
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<dani>")
+        .out(vec!["<follows>".into(), "<status>".into()], None)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<bob>".into(),
+        "<greg>".into(),
+        "cool_person".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // show a predicate path
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<dani>")
+        .out(&g.v("<follows>"), "pred")
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<bob>".into(),
+        "<greg>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // list all bob's incoming predicates
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<bob>")
+        .in_predicates()
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<follows>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // save all bob's incoming predicates
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<bob>")
+        .save_in_predicates("pred")
+        .all().map(|x| x["pred"].to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<follows>".into(),
+        "<follows>".into(),
+        "<follows>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+    /////////////////////////
+    // list all labels
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .labels()
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<smart_graph>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // list all in predicates
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .in_predicates()
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<are>".into(),
+        "<follows>".into(),
+        "<status>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // list all out predicates
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v(None)
+        .out_predicates()
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "<are>".into(),
+        "<follows>".into(),
+        "<status>".into()
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+    /////////////////////////
+    // traverse using LabelContext
+    /////////////////////////
+
+    let mut r:Vec<String> = g.v("<greg>")
+        .label_context("<smart_graph>", None)
+        .out("<status>", None)
+        .all_values().map(|v| v.to_string()).collect();
+
+    let mut f:Vec<String> = vec![
+        "smart_person".into(),
+    ];
+
+    assert!(sort_and_compare(&mut r, &mut f));
+
+
+
+
+
 }
+

@@ -143,7 +143,7 @@ struct FixedContains {
 impl FixedContains {
    fn new(values: Rc<RefCell<Vec<refs::Ref>>>) -> Rc<RefCell<FixedContains>> {
         Rc::new(RefCell::new(FixedContains {
-            keys: values.borrow().iter().map(|r| r.key.clone()).collect(),
+            keys: values.borrow().iter().filter_map(|r| r.key().map(|v| v.clone())).collect(),
             values: values.clone(),
             result: None
         }))
@@ -183,9 +183,11 @@ impl Index for FixedContains {
     #[allow(unused)]
     fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
         for (i, x) in self.keys.iter().enumerate() {
-            if *x == v.key {
-                self.result = Some(self.values.borrow()[i].clone());
-                return true
+            if let Some(k) = v.key() {
+                if *x == *k {
+                    self.result = Some(self.values.borrow()[i].clone());
+                    return true
+                }
             }
         }
         false

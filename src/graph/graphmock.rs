@@ -22,7 +22,7 @@ impl Store {
 
 fn quad_value(q: Quad) -> Ref {
     Ref {
-        key: Value::String(q.to_string()),
+        k: Value::String(q.to_string()),
         content: Content::Quad(q)
     }
 }
@@ -40,7 +40,11 @@ impl Namer for Store {
 
     
     fn name_of(&self, key: &Ref) -> Option<Value> {
-        return Some(key.key.clone())
+        return if let Some(k) = key.key() {
+            Some(k.clone())
+        } else {
+            None
+        }
     }
 
 
@@ -59,9 +63,12 @@ impl QuadStore for Store {
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>> {
         let fixed = Fixed::new(vec![]);
         for q in &self.data {
-            println!("Quad Iterator {:?} == {:?}, Direction: {:?}", q.get(d), &r.key, d);
-            if q.get(d) == &r.key {
-                fixed.borrow_mut().add(quad_value(q.clone()));
+            println!("Quad Iterator {:?} == {:?}, Direction: {:?}", q.get(d), r.key(), d);
+
+            if let Some(k) = r.key() {
+                if q.get(d) == k {
+                    fixed.borrow_mut().add(quad_value(q.clone()));
+                }
             }
         }
         return fixed
@@ -75,8 +82,10 @@ impl QuadStore for Store {
             exact: true
         };
         for q in &self.data {
-            if q.get(d) == &r.key {
-                sz.value += 1;
+            if let Some(k) = r.key() {
+                if q.get(d) == k {
+                    sz.value += 1;
+                }
             }
         }
         return Ok(sz);
@@ -159,7 +168,7 @@ impl QuadStore for Store {
         let fixed = Fixed::new(vec![]);
         for q in &self.data {
             fixed.borrow_mut().add(Ref {
-                key: Value::String(q.to_string()),
+                k: Value::String(q.to_string()),
                 content: Content::Quad(q.clone())
             });
         }

@@ -56,10 +56,10 @@ impl Quad {
 
     pub fn new_undefined_vals() -> Quad {
         Quad {
-            subject: Value::Undefined,
-            predicate: Value::Undefined,
-            object: Value::Undefined,
-            label: Value::Undefined
+            subject: Value::None,
+            predicate: Value::None,
+            object: Value::None,
+            label: Value::None
         }
     }
 

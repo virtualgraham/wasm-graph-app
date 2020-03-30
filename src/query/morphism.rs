@@ -23,8 +23,8 @@ fn join(its: Vec<Rc<RefCell<dyn Shape>>>) -> Rc<RefCell<dyn Shape>> {
 //////////////////////////////////////////////////////////
 
 pub trait Morphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>);
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>);
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>);
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>);
     fn is_tag(&self) -> bool { false }
     fn tags(&self) -> Option<Vec<String>> { None }
 }
@@ -42,11 +42,11 @@ impl IsMorphism {
 }
 
 impl Morphism for IsMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (IsMorphism::new(self.nodes.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("IsMorphism apply() {:?}", self.nodes);
         if self.nodes.is_empty() {
             return (shape, None)
@@ -77,11 +77,11 @@ impl InMorphism {
 }
 
 impl Morphism for InMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (OutMorphism::new(self.tags.clone(), self.via.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("InMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), true), None)
     }
@@ -108,11 +108,11 @@ impl OutMorphism {
 }
 
 impl Morphism for OutMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (InMorphism::new(self.tags.clone(), self.via.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("OutMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), false), None)
     }
@@ -135,11 +135,11 @@ impl BothMorphism {
 }
 
 impl Morphism for BothMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (BothMorphism::new(self.tags.clone(), self.via.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("BothMorphism apply()");
         let via = self.via.as_shape();
         return (Rc::new(RefCell::new(Union(vec![
@@ -168,11 +168,11 @@ impl FollowMorphism {
 }
 
 impl Morphism for FollowMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (FollowMorphism::new(self.path.clone().reverse()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("FollowMorphism apply()");
         (self.path.clone().shape_from(shape), None)
     }
@@ -198,11 +198,11 @@ impl FollowRecursiveMorphism {
 }
 
 impl Morphism for FollowRecursiveMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (FollowRecursiveMorphism::new(self.path.clone().reverse(), self.max_depth, self.depth_tags.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("FollowRecursiveMorphism apply()");
         (self.path.clone().shape_from(shape), None)
     }
@@ -223,11 +223,11 @@ impl AndMorphism {
 }
 
 impl Morphism for AndMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (AndMorphism::new(self.path.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("AndMorphism apply()");
         (join(vec![shape, self.path.clone().shape()]), None)
     }
@@ -248,11 +248,11 @@ impl OrMorphism {
 }
 
 impl Morphism for OrMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (OrMorphism::new(self.path.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("OrMorphism apply()");
        (Rc::new(RefCell::new(Union(vec![shape, self.path.clone().shape()]))), None)
     }
@@ -273,11 +273,11 @@ impl FilterMorphism {
 }
 
 impl Morphism for FilterMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (FilterMorphism::new(self.filters.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("FilterMorphism apply()");
         (Filter::new(shape, self.filters.clone()), None)
     }
@@ -298,11 +298,11 @@ impl TagMorphism {
 }
 
 impl Morphism for TagMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (TagMorphism::new(self.tags.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("TagMorphism apply()");
         (Save::new(self.tags.clone(), Some(shape.clone())), None)
     }
@@ -331,11 +331,11 @@ impl ExceptMorphism {
 }
 
 impl Morphism for ExceptMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (ExceptMorphism::new(self.path.clone()), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("ExceptMorphism apply()");
         ( 
             join(
@@ -363,11 +363,11 @@ impl UniqueMorphism {
 }
 
 impl Morphism for UniqueMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (UniqueMorphism::new(), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("UniqueMorphism apply()");
         ( 
             Rc::new(RefCell::new(Unique{
@@ -411,11 +411,11 @@ impl HasShapeMorphism {
 }
 
 impl Morphism for HasShapeMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (HasShapeMorphism::new(self.via.clone(), self.rev, self.nodes.clone()), None)
     }
 
-    fn apply(&self, r#in: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, r#in: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("HasShapeMorphism apply()");
         ( 
             has_labels(
@@ -445,11 +445,11 @@ impl LimitMorphism {
 }
 
 impl Morphism for LimitMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (LimitMorphism::new(self.limit), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("LimitMorphism apply()");
 
         if self.limit <= 0 {
@@ -478,11 +478,11 @@ impl SkipMorphism {
 }
 
 impl Morphism for SkipMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (SkipMorphism::new(self.offset), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("SkipMorphism apply()");
 
         if self.offset == 0 {
@@ -507,11 +507,11 @@ impl OrderMorphism {
 }
 
 impl Morphism for OrderMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (OrderMorphism::new(), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("OrderMorphism apply()");
         ( 
             Rc::new(RefCell::new(Sort{from: shape})), 
@@ -541,16 +541,137 @@ impl SaveMorphism {
 }
 
 impl Morphism for SaveMorphism {
-    fn reversal(&self, ctx: &PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
         (SaveMorphism::new(self.via.clone(), self.tag.clone(), self.rev, self.opt), None)
     }
 
-    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
         println!("SaveMorphism apply()");
         ( 
             save_via_labels(shape, self.via.as_shape(), ctx.label_set.clone(), self.tag.clone(), self.rev, self.opt), 
             None
         )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct PredicatesMorphism {
+    rev: bool
+}
+
+impl PredicatesMorphism {
+    pub fn new(rev: bool) -> Rc<dyn Morphism> {
+        Rc::new(PredicatesMorphism {
+            rev
+        })
+    }
+}
+
+impl Morphism for PredicatesMorphism {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (PredicatesMorphism::new(self.rev), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("PredicatesMorphism apply()");
+        ( 
+            predicates(shape, self.rev),
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct SavePredicatesMorphism {
+    tag: String,
+    rev: bool
+}
+
+impl SavePredicatesMorphism {
+    pub fn new(tag: String, rev: bool) -> Rc<dyn Morphism> {
+        Rc::new(SavePredicatesMorphism {
+            tag,
+            rev
+        })
+    }
+}
+
+impl Morphism for SavePredicatesMorphism {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        (SavePredicatesMorphism::new(self.tag.clone(), self.rev), None)
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("SavePredicatesMorphism apply()");
+        ( 
+            save_predicates(shape, self.rev, self.tag.clone()),      
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct LabelsMorphism();
+
+impl LabelsMorphism {
+    pub fn new() -> Rc<dyn Morphism> {
+        Rc::new(LabelsMorphism())
+    }
+}
+
+impl Morphism for LabelsMorphism {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        panic!("not implemented")
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("LabelsMorphism apply()");
+        ( 
+            labels(shape),      
+            None
+        )
+    }
+}
+
+//////////////////////////////////////////////////////////
+
+pub struct LabelContextMorphism {
+    tags: Vec<String>,
+    via: Via,
+    path: Option<Rc<RefCell<dyn Shape>>>
+}
+
+impl LabelContextMorphism {
+    pub fn new(via: Via, tags: Vec<String>) -> Rc<dyn Morphism> {
+        let path = if let Via::None = via {
+            None
+        } else {
+            Some(via.as_shape())
+        };
+
+        Rc::new(LabelContextMorphism {
+            tags,
+            via,
+            path
+        })
+    }
+}
+
+impl Morphism for LabelContextMorphism {
+    fn reversal(&self, ctx: &mut PathContext) -> (Rc<dyn Morphism>, Option<PathContext>) {
+        let out = ctx.clone();
+        ctx.label_set = self.path.clone();
+        ( LabelContextMorphism::new(self.via.clone(), self.tags.clone()), Some(out) )
+    }
+
+    fn apply(&self, shape: Rc<RefCell<dyn Shape>>, ctx: &mut PathContext) -> (Rc<RefCell<dyn Shape>>, Option<PathContext>) {
+        println!("LabelContextMorphism apply()");
+        let mut out = ctx.clone();
+        out.label_set = self.path.clone();
+        ( shape, Some(out) )
     }
 }
 

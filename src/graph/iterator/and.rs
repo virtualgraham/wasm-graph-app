@@ -29,7 +29,9 @@ impl And  {
     }
 
     pub fn add_optional_iterator(&mut self, sub: Rc<RefCell<dyn Shape>>) {
+        println!("And add_optional_iterator");
         if self.opt.is_none() { 
+            println!("And add_optional_iterator opt.is_none");
             self.opt = Some(Vec::new()); 
         }
         self.opt.as_mut().unwrap().push(sub);

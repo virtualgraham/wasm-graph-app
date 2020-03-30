@@ -95,7 +95,7 @@ impl Base for MemStoreIteratorNext {
     fn result(&self) -> Option<Ref> {
         match self.cur {
             Some(quad_id) => Some(Ref {
-                key: Value::from(quad_id),
+                k: Value::from(quad_id),
                 content: Content::None
             }),
             None => None
@@ -173,7 +173,7 @@ impl Base for MemStoreIteratorContains {
     fn result(&self) -> Option<Ref> {
         match self.cur {
             Some(c) => Some(Ref {
-                key: Value::from(c),
+                k: Value::from(c),
                 content: Content::None
             }),
             None => None
@@ -195,7 +195,7 @@ impl Base for MemStoreIteratorContains {
 
 impl Index for MemStoreIteratorContains {
     fn contains(&mut self, ctx: &Context, v:&Ref) -> bool {
-        let id = v.key.as_i64();
+        let id = if let Some(k) = v.key() { k.as_i64() } else { None };
         match id {
             Some(i) => {
                 let c = self.quad_ids.contains(&i);
