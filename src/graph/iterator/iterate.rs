@@ -1,13 +1,11 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use super::{Shape, Scanner};
 use super::refs::Ref;
 use std::collections::HashMap;
 
 
 pub struct BaseIterator {
-    ctx: Rc<RefCell<Context>>,
     s: Rc<RefCell<dyn Shape>>,
     it: Option<Rc<RefCell<dyn Scanner>>>,
     paths: bool,
@@ -18,8 +16,7 @@ pub struct BaseIterator {
 impl BaseIterator {
     pub fn start(&mut self) {
         if self.optimize {
-            let ctx = &*self.ctx.borrow();
-            let shape = self.s.clone().borrow_mut().optimize(ctx);
+            let shape = self.s.clone().borrow_mut().optimize();
 
             if let Some(s) = shape {
                 self.s = s;
@@ -35,7 +32,7 @@ impl BaseIterator {
 
 
     fn next_val(&mut self) -> bool {
-        let ok = self.it.as_ref().unwrap().borrow_mut().next(&*self.ctx.borrow());
+        let ok = self.it.as_ref().unwrap().borrow_mut().next();
         if ok {
             self.n += 1;
         }
@@ -43,7 +40,7 @@ impl BaseIterator {
     }
 
     fn next_path(&mut self) -> bool {
-        let ok = self.it.as_ref().unwrap().borrow_mut().next_path(&*self.ctx.borrow());
+        let ok = self.it.as_ref().unwrap().borrow_mut().next_path();
         if ok {
             self.n += 1;
         }
@@ -57,10 +54,9 @@ pub struct TagEachIterator {
 }
 
 impl TagEachIterator {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> TagEachIterator {
+    pub fn new(it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> TagEachIterator {
         TagEachIterator {
             base: BaseIterator {
-                ctx,
                 s: it,
                 it: None,
                 paths,
@@ -121,10 +117,9 @@ pub struct EachIterator {
 }
 
 impl EachIterator {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> EachIterator {
+    pub fn new(it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> EachIterator {
         EachIterator {
             base: BaseIterator {
-                ctx,
                 s: it,
                 it: None,
                 paths,

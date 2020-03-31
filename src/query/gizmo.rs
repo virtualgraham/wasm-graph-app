@@ -7,7 +7,6 @@ use crate::graph::graphmock;
 use crate::graph::memstore;
 use crate::graph::value::Value;
 use crate::graph::iterator;
-use io_context::Context;
 use std::collections::HashMap;
 use crate::graph::refs::Ref;
 
@@ -17,7 +16,6 @@ pub fn new_memory_graph() -> GraphWrapper {
     //let qs = Rc::new(RefCell::new(graphmock::Store::new()));
 
     let s = Rc::new(RefCell::new(Session {
-        ctx: Rc::new(RefCell::new(Context::background())),
         qs: qs.clone(),
         qw: QuadWriter::new(qs.clone(), IgnoreOptions{ignore_dup: true, ignore_missing: true})
     }));
@@ -61,7 +59,6 @@ impl GraphWrapper {
 
 
 pub struct Session {
-    ctx: Rc<RefCell<Context>>,
     qs: Rc<RefCell<dyn QuadStore>>,
     qw: QuadWriter
 }
@@ -83,11 +80,11 @@ impl Session {
     }
 
     fn run_tag_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::TagEachIterator {
-        iterator::iterate::TagEachIterator::new(self.ctx.clone(), it, false, true)
+        iterator::iterate::TagEachIterator::new(it, false, true)
     }
 
     fn run_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::EachIterator {
-        iterator::iterate::EachIterator::new(self.ctx.clone(), it, false, true)
+        iterator::iterate::EachIterator::new(it, false, true)
     }
 }
 
@@ -141,11 +138,8 @@ impl Path {
 
     fn build_iterator_tree(&self) -> Rc<RefCell<dyn iterator::Shape>> {
         let s = self.session.borrow();
-        let ctx = s.ctx.borrow();
-
         let qs = self.session.borrow().qs.clone();
-
-        self.path.build_iterator_on(&*ctx, qs)
+        self.path.build_iterator_on(qs)
     }
 
 

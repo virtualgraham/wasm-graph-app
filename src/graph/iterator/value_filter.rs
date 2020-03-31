@@ -4,7 +4,6 @@ use super::super::value::{Value};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 use super::super::quad::QuadStore;
 use serde_json::value::Number;
@@ -197,15 +196,15 @@ impl Shape for ValueFilter {
         ValueFilterContains::new(self.qs.clone(), self.sub.borrow().lookup(), self.filter.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let mut st = self.sub.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let mut st = self.sub.borrow_mut().stats()?;
         st.size.value = st.size.value/2 + 1;
         st.size.exact = false;
         return Ok(st);
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_sub = self.sub.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_sub = self.sub.borrow_mut().optimize();
         if new_sub.is_some() {
             self.sub = new_sub.unwrap();
         }
@@ -274,8 +273,8 @@ impl Base for ValueFilterNext {
         return self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        return self.sub.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        return self.sub.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -288,8 +287,8 @@ impl Base for ValueFilterNext {
 }
 
 impl Scanner for ValueFilterNext {
-    fn next(&mut self, ctx: &Context) -> bool {
-        while self.sub.borrow_mut().next(ctx) {
+    fn next(&mut self) -> bool {
+        while self.sub.borrow_mut().next() {
             let val = self.sub.borrow().result().unwrap();
             if self.do_filter(&val) {
                 self.result = Some(val);
@@ -350,8 +349,8 @@ impl Base for ValueFilterContains {
         self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        self.sub.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        self.sub.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -364,11 +363,11 @@ impl Base for ValueFilterContains {
 }
 
 impl Index for ValueFilterContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         if !self.do_filter(v) {
             return false
         }
-        let ok = self.sub.borrow_mut().contains(ctx, v);
+        let ok = self.sub.borrow_mut().contains(v);
         if !ok {
             self.err = self.sub.borrow().err();
         }

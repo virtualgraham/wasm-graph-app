@@ -3,7 +3,6 @@ use super::super::refs;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Limit {
@@ -37,16 +36,16 @@ impl Shape for Limit {
         return LimitContains::new(&self.it.borrow().lookup(), self.limit)
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let mut st = self.it.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let mut st = self.it.borrow_mut().stats()?;
         if self.limit > 0 && st.size.value > self.limit {
             st.size.value = self.limit
         }
         return Ok(st)
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let nit = self.it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let nit = self.it.borrow_mut().optimize();
         if self.limit <= 0 {
             return nit
         }
@@ -96,11 +95,11 @@ impl Base for LimitNext {
         self.it.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if self.limit > 0 && self.count >= self.limit {
             return false
         }
-        if self.it.borrow_mut().next_path(ctx) {
+        if self.it.borrow_mut().next_path() {
             self.count += 1;
             return true
         }
@@ -117,11 +116,11 @@ impl Base for LimitNext {
 }
 
 impl Scanner for LimitNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.limit > 0 && self.count >= self.limit {
             return false
         }
-        if self.it.borrow_mut().next(ctx) {
+        if self.it.borrow_mut().next() {
             self.count += 1;
             return true
         }
@@ -162,11 +161,11 @@ impl Base for LimitContains {
         self.it.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if self.limit > 0 && self.count >= self.limit {
             return false
         }
-        if self.it.borrow_mut().next_path(ctx) {
+        if self.it.borrow_mut().next_path() {
             self.count += 1;
             return true;
         }
@@ -183,11 +182,11 @@ impl Base for LimitContains {
 }
 
 impl Index for LimitContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         if self.limit > 0 && self.count >= self.limit {
             return false
         }
-        if self.it.borrow_mut().contains(ctx, v) {
+        if self.it.borrow_mut().contains(v) {
             self.count += 1;
             return true;
         }

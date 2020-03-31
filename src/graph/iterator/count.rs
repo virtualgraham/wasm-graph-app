@@ -4,7 +4,6 @@ use super::super::value::Value;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Count {
@@ -37,7 +36,7 @@ impl Shape for Count {
         CountContains::new(self.it.clone(), self.qs.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
        let mut stats = Costs {
            next_cost: 1,
            contains_cost: 0,
@@ -46,15 +45,15 @@ impl Shape for Count {
                exact: true
            }
        };
-       let sub = self.it.borrow_mut().stats(ctx);
+       let sub = self.it.borrow_mut().stats();
        if sub.is_ok() && !sub.as_ref().unwrap().size.exact {
             stats.next_cost = sub.as_ref().unwrap().next_cost * sub.as_ref().unwrap().size.value;
        }
        Ok(stats)
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let optimized = self.it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let optimized = self.it.borrow_mut().optimize();
         if optimized.is_some() { self.it = optimized.unwrap(); }
         return None
     }
@@ -107,7 +106,7 @@ impl Base for CountNext {
     }
     
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         return false
     }
     
@@ -121,11 +120,11 @@ impl Base for CountNext {
 }
 
 impl Scanner for CountNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.done {
             return false
         }
-        let st = self.it.borrow_mut().stats(ctx);
+        let st = self.it.borrow_mut().stats();
         if let Err(e) = st {
             self.err = Some(e);
             return false
@@ -135,9 +134,9 @@ impl Scanner for CountNext {
         if !st.size.exact {
             let sit = self.it.borrow().iterate();
             st.size.value = 0;
-            while sit.borrow_mut().next(ctx) {
+            while sit.borrow_mut().next() {
                 st.size.value += 1;
-                while sit.borrow_mut().next_path(ctx) {
+                while sit.borrow_mut().next_path() {
                     st.size.value += 1;
                 }
             }
@@ -180,7 +179,7 @@ impl Base for CountContains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -194,9 +193,9 @@ impl Base for CountContains {
 }
 
 impl Index for CountContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         if !self.it.borrow().done {
-            self.it.borrow_mut().next(ctx);
+            self.it.borrow_mut().next();
         }
         if v.has_value() {
             return v.content == self.it.borrow().result

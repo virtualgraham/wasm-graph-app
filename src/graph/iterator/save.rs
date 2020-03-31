@@ -3,7 +3,6 @@ use super::super::refs;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub fn tag<T: ToString>(shape: &Rc<RefCell<dyn Shape>>, tag: &T) -> Rc<RefCell<dyn Shape>> {
@@ -48,12 +47,12 @@ impl Shape for Save {
         SaveContains::new(self.it.borrow().lookup(), self.tags.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        self.it.borrow_mut().stats(ctx)
+    fn stats(&mut self) -> Result<Costs, String> {
+        self.it.borrow_mut().stats()
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let res = self.it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let res = self.it.borrow_mut().optimize();
         if self.tags.borrow().tags.is_empty() && self.tags.borrow().fixed_tags.is_empty() {
             return res
         }
@@ -127,8 +126,8 @@ impl Base for SaveNext {
         self.it.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        self.it.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        self.it.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -141,8 +140,8 @@ impl Base for SaveNext {
 }
 
 impl Scanner for SaveNext {
-    fn next(&mut self, ctx: &Context) -> bool {
-        self.it.borrow_mut().next(ctx)
+    fn next(&mut self) -> bool {
+        self.it.borrow_mut().next()
     }
 }
 
@@ -187,8 +186,8 @@ impl Base for SaveContains {
         return self.it.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        return self.it.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        return self.it.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -201,7 +200,7 @@ impl Base for SaveContains {
 }
 
 impl Index for SaveContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
-        return self.it.borrow_mut().contains(ctx, v)
+    fn contains(&mut self, v:&refs::Ref) -> bool {
+        return self.it.borrow_mut().contains( v)
     }
 }

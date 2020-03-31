@@ -18,7 +18,6 @@ use std::collections::HashMap;
 use super::refs;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 use super::iterator::fixed::Fixed;
@@ -54,19 +53,19 @@ impl Tags {
 pub trait Base : fmt::Display {
     fn tag_results(&self, tags: &mut HashMap<String, refs::Ref>);
     fn result(&self) -> Option<refs::Ref>;
-    fn next_path(&mut self, ctx: &Context) -> bool;
+    fn next_path(&mut self) -> bool;
     fn err(&self) -> Option<String>;
     fn close(&mut self) -> Result<(), String>;
 }
 
 
 pub trait Scanner : Base {
-    fn next(&mut self, ctx: &Context) -> bool;
+    fn next(&mut self) -> bool;
 }
 
 
 pub trait Index : Base {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool;
+    fn contains(&mut self, v:&refs::Ref) -> bool;
 }
 
 
@@ -120,12 +119,12 @@ pub trait Shape : fmt::Display {
     fn lookup(&self) -> Rc<RefCell<dyn Index>>;
 
     // self is mut so stats can be cached
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String>;
+    fn stats(&mut self) -> Result<Costs, String>;
 
     // Optimizes an iterator. Can replace the iterator, or merely move things
 	// around internally. If it chooses to replace it with a better iterator,
 	// returns Some with the new Shape if not, it returns None.
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>>;
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>>;
 
     fn sub_iterators(&self) -> Option<Vec<Rc<RefCell<dyn Shape>>>>;
 
@@ -190,7 +189,7 @@ impl Base for Null {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -206,7 +205,7 @@ impl Base for Null {
 
 impl Scanner for Null {
     #[allow(unused)]
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         false
     }
 }
@@ -214,7 +213,7 @@ impl Scanner for Null {
 
 impl Index for Null {
     #[allow(unused)]
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         false
     }
 }
@@ -230,12 +229,12 @@ impl Shape for Null {
     }
 
     #[allow(unused)]
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         return Ok(Costs::new())
     }
 
     #[allow(unused)]
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         None
     }
 
@@ -273,7 +272,7 @@ impl Base for Error {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -289,7 +288,7 @@ impl Base for Error {
 
 impl Scanner for Error {
     #[allow(unused)]
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         false
     }
 }
@@ -297,7 +296,7 @@ impl Scanner for Error {
 
 impl Index for Error {
     #[allow(unused)]
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         false
     }
 }
@@ -320,12 +319,12 @@ impl Shape for Error {
     }
 
     #[allow(unused)]
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         return Ok(Costs::new())
     }
 
     #[allow(unused)]
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         None
     }
 

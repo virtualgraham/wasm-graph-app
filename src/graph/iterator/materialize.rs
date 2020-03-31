@@ -3,7 +3,6 @@ use super::super::refs;
 use super::super::value::Value;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -47,9 +46,9 @@ impl Shape for Materialize {
         return MaterializeContains::new(self.sub.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         let overhead = 2i64;
-        let subit_stats = self.sub.borrow_mut().stats(ctx)?;
+        let subit_stats = self.sub.borrow_mut().stats()?;
         let size;
         if self.expected_size > 0 {
             size = refs::Size{value: self.expected_size, exact: false};
@@ -63,8 +62,8 @@ impl Shape for Materialize {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let n = self.sub.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let n = self.sub.borrow_mut().optimize();
         if n.is_some() {
             self.sub = n.unwrap();
             if is_null(&self.sub) {
@@ -118,9 +117,9 @@ impl MaterializeNext {
         }))
     }
 
-    fn materialize_set(&mut self, ctx: &Context) {
+    fn materialize_set(&mut self) {
         let mut i = 0;
-        while self.next.borrow_mut().next(ctx) {
+        while self.next.borrow_mut().next() {
             i += 1;
             if i > MATERIALIZE_LIMIT {
                 self.aborted = true;
@@ -139,7 +138,7 @@ impl MaterializeNext {
                 let mut tags: HashMap<String, refs::Ref> = HashMap::new();
                 self.next.as_ref().borrow().tag_results(&mut tags);
                 self.values[*index.unwrap()].push(MaterializeResult{id: id.clone(), tags});
-                while self.next.borrow_mut().next_path(ctx) {
+                while self.next.borrow_mut().next_path() {
                     i += 1;
                     if i > MATERIALIZE_LIMIT {
                         self.aborted = true;
@@ -216,15 +215,15 @@ impl Base for MaterializeNext {
         return Some(b.id.clone())
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if !self.has_run {
-            self.materialize_set(ctx);
+            self.materialize_set();
         }
         if self.err.is_some() {
             return false
         }
         if self.aborted {
-            return self.next.borrow_mut().next_path(ctx)
+            return self.next.borrow_mut().next_path()
         }
 
         self.sub_index = Some(self.sub_index.unwrap() + 1);
@@ -249,15 +248,15 @@ impl Base for MaterializeNext {
 }
 
 impl Scanner for MaterializeNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if !self.has_run {
-            self.materialize_set(ctx);
+            self.materialize_set();
         }
         if self.err.is_some() {
             return false
         }
         if self.aborted {
-            let n = self.next.borrow_mut().next(ctx);
+            let n = self.next.borrow_mut().next();
             self.err = self.next.borrow().err();
             return n
         }
@@ -283,8 +282,8 @@ impl MaterializeContains {
         }))
     }
 
-    fn run(&mut self, ctx: &Context) {
-        self.next.borrow_mut().materialize_set(ctx);
+    fn run(&mut self) {
+        self.next.borrow_mut().materialize_set();
         if self.next.borrow().aborted {
             self.sub = Some(self.next.borrow().sub.borrow().lookup());
         }
@@ -314,18 +313,18 @@ impl Base for MaterializeContains {
         self.next.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if !self.next.borrow().has_run {
-            self.run(ctx);
+            self.run();
         }
         if self.next.borrow().err().is_some() {
             return false
         }
         if self.sub.is_some() {
-            return self.sub.as_ref().unwrap().borrow_mut().next_path(ctx);
+            return self.sub.as_ref().unwrap().borrow_mut().next_path();
         }
 
-        return self.next.borrow_mut().next_path(ctx);
+        return self.next.borrow_mut().next_path();
     }
 
     fn err(&self) -> Option<String> {
@@ -351,9 +350,9 @@ impl Base for MaterializeContains {
 }
 
 impl Index for MaterializeContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         if !self.next.borrow().has_run {
-            self.run(ctx);
+            self.run();
         }
 
         if self.next.borrow().err().is_some() {
@@ -361,7 +360,7 @@ impl Index for MaterializeContains {
         }
 
         if self.sub.is_some() {
-            return self.sub.as_ref().unwrap().borrow_mut().contains(ctx, v)
+            return self.sub.as_ref().unwrap().borrow_mut().contains(v)
         }
 
         let i = if let Some(k) = v.key() {

@@ -2,7 +2,6 @@ use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use std::rc::Rc;
 use std::cell::RefCell;
 use gizmo_graph_db::graph::iterator::{Shape, Scanner, Index, Costs, Base, ShapeType};
-use io_context::Context;
 use gizmo_graph_db::graph::refs;
 use gizmo_graph_db::graph::value::Value;
 use std::collections::HashMap;
@@ -47,11 +46,11 @@ impl Shape for Test {
             err: self.err.clone()
         }))
     }
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        self.shape.borrow_mut().stats(ctx)
+    fn stats(&mut self) -> Result<Costs, String> {
+        self.shape.borrow_mut().stats()
     }
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        self.shape.borrow_mut().optimize(ctx)
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        self.shape.borrow_mut().optimize()
     }
     fn sub_iterators(&self) -> Option<Vec<Rc<RefCell<dyn Shape>>>> {
         self.shape.borrow().sub_iterators()
@@ -81,8 +80,8 @@ impl Base for TestNext {
     fn result(&self) -> Option<refs::Ref> {
         return self.scanner.borrow().result()
     }
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        return self.scanner.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        return self.scanner.borrow_mut().next_path()
     }
     fn err(&self) -> Option<String> {
         return self.err.clone()
@@ -94,7 +93,7 @@ impl Base for TestNext {
 
 impl Scanner for TestNext {
     #[allow(unused)]
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         return self.next
     }
 }
@@ -119,8 +118,8 @@ impl Base for TestContains {
     fn result(&self) -> Option<refs::Ref> {
         return self.index.borrow().result()
     }
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        return self.index.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        return self.index.borrow_mut().next_path()
     }
     fn err(&self) -> Option<String> {
         return self.err.clone()
@@ -132,7 +131,7 @@ impl Base for TestContains {
 
 impl Index for TestContains {
     #[allow(unused)]
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         return self.next
     }
 }
@@ -194,7 +193,7 @@ impl Shape for Int64 {
     }
 
     #[allow(unused)]
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         let s = self.size();
         return Ok(Costs {
             contains_cost: 1,
@@ -204,7 +203,7 @@ impl Shape for Int64 {
     }
 
     #[allow(unused)]
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         None
     }
 
@@ -251,7 +250,7 @@ impl Base for Int64Next {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -266,7 +265,7 @@ impl Base for Int64Next {
 
 impl Scanner for Int64Next {
     #[allow(unused)]
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.at == -1 {
             return false
         }
@@ -306,7 +305,7 @@ impl Base for Int64Contains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -321,7 +320,7 @@ impl Base for Int64Contains {
 
 impl Index for Int64Contains {
     #[allow(unused)]
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         let v = val_to_int_64(v);
         if self.min <= v && v <= self.max {
             self.result = v;
@@ -333,10 +332,9 @@ impl Index for Int64Contains {
 
 
 pub fn iterated(s: Rc<RefCell<dyn Shape>>) -> Vec<i64> {
-    let ctx = Context::background();
     let mut res = Vec::new();
     let it = s.borrow().iterate();
-    while it.borrow_mut().next(&ctx) {
+    while it.borrow_mut().next() {
 
         let n = val_to_int_64(it.borrow().result().as_ref().unwrap());
         res.push(n)

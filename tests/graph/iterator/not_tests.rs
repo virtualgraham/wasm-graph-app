@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::not::{Not};
 use gizmo_graph_db::graph::iterator::{Shape};
@@ -8,8 +7,6 @@ use super::common;
 
 #[test]
 fn test_not_iterator_basics() {
-    let ctx = Context::background();
-
     let all_it = Fixed::new(vec![
         Ref::new_i64_node(1),
         Ref::new_i64_node(2),
@@ -24,7 +21,7 @@ fn test_not_iterator_basics() {
 
     let not = Not::new(to_compliment_it, all_it);
 
-    let st = not.borrow_mut().stats(&ctx);
+    let st = not.borrow_mut().stats();
     assert_eq!(2, st.unwrap().size.value);
 
     let expect = vec![1,3];
@@ -34,24 +31,23 @@ fn test_not_iterator_basics() {
 
     let nc = not.borrow().lookup();
     for v in vec![1,3] {
-        assert!(nc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(nc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 
     for v in vec![2,4] {
-        assert!(!nc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(!nc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 }
 
 
 #[test]
 fn test_not_iterator_err() {
-    let ctx = Context::background();
     let all_it = common::Test::new(false, Some("unique".to_string()));
     
     let to_complement_it = Fixed::new(vec![]);
 
     let not = Not::new(to_complement_it, all_it).borrow().iterate();
 
-    assert!(!not.borrow_mut().next(&ctx));
+    assert!(!not.borrow_mut().next());
     assert_eq!(Some("unique".to_string()), not.borrow().err());
 }

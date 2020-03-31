@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::and::{And};
 use gizmo_graph_db::graph::iterator::save::{tag};
@@ -52,7 +51,6 @@ fn rec_test_qs() -> Store {
 
 #[test]
 fn test_recursive_next() {
-    let ctx = Context::background();
     let qs = Rc::new(RefCell::new(rec_test_qs()));
     let start = Fixed::new(vec![]);
     start.borrow_mut().add(pre_fetched(Value::from("alice")));
@@ -60,7 +58,7 @@ fn test_recursive_next() {
 
     let mut expected = vec!["bob", "charlie", "dani", "emily"];
     let mut got = Vec::new();
-    while r.borrow_mut().next(&ctx) {
+    while r.borrow_mut().next() {
         got.push(r.borrow().result().unwrap().key().unwrap().to_string());
     }
 
@@ -73,7 +71,6 @@ fn test_recursive_next() {
 
 #[test]
 fn test_recursive_contains() {
-    let ctx = Context::background();
     let qs = Rc::new(RefCell::new(rec_test_qs()));
     let start = Fixed::new(vec![]);
     start.borrow_mut().add(pre_fetched(Value::from("alice")));
@@ -85,7 +82,7 @@ fn test_recursive_contains() {
         let v = values[i];
 
         let value = qs.borrow().value_of(&Value::from(v));
-        let ok = value.is_some() && r.borrow_mut().contains(&ctx, value.as_ref().unwrap()); 
+        let ok = value.is_some() && r.borrow_mut().contains(value.as_ref().unwrap()); 
         
         assert_eq!(expected[i], ok);
     }
@@ -94,7 +91,6 @@ fn test_recursive_contains() {
 
 #[test]
 fn test_recursive_next_path() {
-    let ctx = Context::background();
     let qs = Rc::new(RefCell::new(rec_test_qs()));
 
     let start = qs.borrow().nodes_all_iterator();
@@ -115,11 +111,11 @@ fn test_recursive_next_path() {
     let mut expected = vec!["fred", "fred", "fred", "fred", "greg", "greg", "greg", "greg"];
     let mut got = Vec::new();
 
-    while r.borrow_mut().next(&ctx) {
+    while r.borrow_mut().next() {
         let mut res = HashMap::new();
         r.borrow().tag_results(&mut res);
         got.push(res[&"person".to_string()].key().unwrap().to_string());
-        while r.borrow_mut().next_path(&ctx) {
+        while r.borrow_mut().next_path() {
             let mut res = HashMap::new();
             r.borrow().tag_results(&mut res);
             got.push(res[&"person".to_string()].key().unwrap().to_string());

@@ -4,7 +4,6 @@ use super::quad::{Direction, QuadStore};
 use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, Null, is_null};
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -33,7 +32,7 @@ impl LinksTo {
         return self.dir.clone()
     }
 
-    fn get_size(&mut self, ctx: &Context) -> Size {
+    fn get_size(&mut self) -> Size {
         if self.size.value != 0 {
             return self.size.clone()
         }
@@ -46,7 +45,7 @@ impl LinksTo {
 
             for v in fixed.values.borrow().iter() {
                 let sit = self.qs.borrow().quad_iterator(&self.dir, v);
-                let st = sit.borrow_mut().stats(ctx);
+                let st = sit.borrow_mut().stats();
                 size.value += st.as_ref().unwrap().size.value;
                 size.exact = size.exact && st.as_ref().unwrap().size.exact;
             }
@@ -55,11 +54,11 @@ impl LinksTo {
             return size;
         }
 
-        let stats = self.qs.borrow().stats(ctx, false).unwrap();
+        let stats = self.qs.borrow().stats(false).unwrap();
         let max_size = stats.quads.value/2 + 1;
 
         let fanout_factor = 20;
-        let st = self.primary.borrow_mut().stats(ctx);
+        let st = self.primary.borrow_mut().stats();
         let mut value = st.unwrap().size.value * fanout_factor;
         if value > max_size {
             value = max_size;
@@ -88,19 +87,19 @@ impl Shape for LinksTo {
         LinksToContains::new(self.qs.clone(), self.primary.borrow().lookup(), self.dir.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let subit_stats = self.primary.borrow_mut().stats(ctx).unwrap();
+    fn stats(&mut self) -> Result<Costs, String> {
+        let subit_stats = self.primary.borrow_mut().stats().unwrap();
         let check_constant = 1i64;
         let next_contant = 2i64;
         return Ok(Costs {
             next_cost: next_contant + subit_stats.next_cost,
             contains_cost: check_constant + subit_stats.contains_cost,
-            size: self.get_size(ctx)
+            size: self.get_size()
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_primary = self.primary.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_primary = self.primary.borrow_mut().optimize();
         if new_primary.is_some() {
             self.primary = new_primary.unwrap();
             if is_null(&self.primary) {
@@ -164,8 +163,8 @@ impl Base for LinksToNext {
         self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        let ok = self.primary.borrow_mut().next_path(ctx);
+    fn next_path(&mut self) -> bool {
+        let ok = self.primary.borrow_mut().next_path();
         if !ok {
             self.err = self.primary.borrow().err();
         }
@@ -188,9 +187,9 @@ impl Base for LinksToNext {
 }
 
 impl Scanner for LinksToNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         loop {
-            if self.next_it.borrow_mut().next(ctx) {
+            if self.next_it.borrow_mut().next() {
                 self.result = self.next_it.borrow().result();
                 return true
             }
@@ -200,7 +199,7 @@ impl Scanner for LinksToNext {
                 return false
             }
 
-            if !self.primary.borrow_mut().next(ctx) {
+            if !self.primary.borrow_mut().next() {
                 self.err = self.primary.borrow().err();
                 return false
             }
@@ -252,8 +251,8 @@ impl Base for LinksToContains {
         self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        self.primary.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        self.primary.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -266,11 +265,11 @@ impl Base for LinksToContains {
 }
 
 impl Index for LinksToContains {
-    fn contains(&mut self, ctx: &Context, val:&Ref) -> bool {
+    fn contains(&mut self, val:&Ref) -> bool {
         let node = self.qs.borrow().quad_direction(val, &self.dir);
         match node {
             Some(n) => {
-                if self.primary.borrow_mut().contains(ctx, &n) {
+                if self.primary.borrow_mut().contains(&n) {
                     self.result = Some(val.clone());
                     return true
                 }

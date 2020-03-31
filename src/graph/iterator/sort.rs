@@ -5,7 +5,6 @@ use super::super::quad::QuadStore;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -40,8 +39,8 @@ impl Shape for Sort {
         self.sub_it.borrow().lookup()
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let sub_stats = self.sub_it.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let sub_stats = self.sub_it.borrow_mut().stats()?;
         return Ok(Costs {
             next_cost: sub_stats.next_cost * 2,
             contains_cost: sub_stats.contains_cost,
@@ -52,8 +51,8 @@ impl Shape for Sort {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_it = self.sub_it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_it = self.sub_it.borrow_mut().optimize();
         if new_it.is_some() {
             self.sub_it = new_it.unwrap()
         }
@@ -141,7 +140,7 @@ impl Base for SortNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if self.index >= self.ordered.as_ref().unwrap().len() {
             return false
         }
@@ -165,13 +164,13 @@ impl Base for SortNext {
 }
 
 impl Scanner for SortNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.err.is_some() {
             return false
         }
 
         if self.ordered.is_none() {
-            let v = get_sorted_values(ctx, &self.qs, &self.sub_it);
+            let v = get_sorted_values(&self.qs, &self.sub_it);
             if let Err(e) = v {
                 self.err = Some(e);
                 return false
@@ -193,10 +192,10 @@ impl Scanner for SortNext {
     }
 }
 
-fn get_sorted_values(ctx: &Context, qs: &Rc<RefCell<dyn QuadStore>>, it: &Rc<RefCell<dyn Scanner>>) -> Result<Vec<SortValue>, String> {
+fn get_sorted_values(qs: &Rc<RefCell<dyn QuadStore>>, it: &Rc<RefCell<dyn Scanner>>) -> Result<Vec<SortValue>, String> {
     let mut v:Vec<SortValue> = Vec::new();
 
-    while it.borrow_mut().next(ctx) {
+    while it.borrow_mut().next() {
         let id = it.borrow().result().unwrap();
         let name = qs.borrow().name_of(&id).unwrap();
         let string = name.to_string();
@@ -210,7 +209,7 @@ fn get_sorted_values(ctx: &Context, qs: &Rc<RefCell<dyn QuadStore>>, it: &Rc<Ref
             string,
             paths: Vec::new()
         };
-        while it.borrow_mut().next_path(ctx) {
+        while it.borrow_mut().next_path() {
             tags = HashMap::new();
             it.borrow().tag_results(&mut tags);
             val.paths.push(MaterializeResult {

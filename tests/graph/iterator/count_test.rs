@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::count::{Count};
 use gizmo_graph_db::graph::iterator::and::{And};
@@ -9,8 +8,6 @@ use gizmo_graph_db::graph::value::{Value};
 
 #[test]
 fn test_count() {
-    let ctx = Context::background();
-
     let fixed = Fixed::new(vec![
         pre_fetched(Value::from("a")),
         pre_fetched(Value::from("b")),
@@ -22,13 +19,13 @@ fn test_count() {
     let its = Count::new(fixed.clone(), None);
 
     let itn = its.borrow().iterate();
-    assert!(itn.borrow_mut().next(&ctx));
+    assert!(itn.borrow_mut().next());
     assert_eq!(pre_fetched(Value::from(5)), itn.borrow().result().unwrap());
-    assert!(!itn.borrow_mut().next(&ctx));
+    assert!(!itn.borrow_mut().next());
 
     let itc = its.borrow().lookup();
-    assert!(itc.borrow_mut().contains(&ctx, &pre_fetched(Value::from(5))));
-    assert!(!itc.borrow_mut().contains(&ctx, &pre_fetched(Value::from(3))));
+    assert!(itc.borrow_mut().contains(&pre_fetched(Value::from(5))));
+    assert!(!itc.borrow_mut().contains(&pre_fetched(Value::from(3))));
 
     let fixed2 = Fixed::new(vec![
         pre_fetched(Value::from("b")),
@@ -38,11 +35,11 @@ fn test_count() {
     let its = Count::new(And::new(vec![fixed.clone(), fixed2]), None);
 
     let itn = its.borrow().iterate();
-    assert!(itn.borrow_mut().next(&ctx));
+    assert!(itn.borrow_mut().next());
     assert_eq!(pre_fetched(Value::from(2)), itn.borrow().result().unwrap());
-    assert!(!itn.borrow_mut().next(&ctx));
+    assert!(!itn.borrow_mut().next());
 
     let itc = its.borrow().lookup();
-    assert!(!itc.borrow_mut().contains(&ctx, &pre_fetched(Value::from(5))));
-    assert!(itc.borrow_mut().contains(&ctx, &pre_fetched(Value::from(2))));
+    assert!(!itc.borrow_mut().contains(&pre_fetched(Value::from(5))));
+    assert!(itc.borrow_mut().contains(&pre_fetched(Value::from(2))));
 }

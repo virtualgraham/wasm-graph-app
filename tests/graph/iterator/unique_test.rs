@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::unique::{Unique};
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::{Shape};
@@ -9,8 +8,6 @@ use super::common;
 
 #[test]
 fn test_unique_iterator_basics() {
-    let ctx = Context::background();
-
     let all_it = Fixed::new(vec![
         Ref::new_i64_node(1),
         Ref::new_i64_node(2),
@@ -28,6 +25,6 @@ fn test_unique_iterator_basics() {
 
     let uc = u.borrow().lookup();
     for v in 1..4 {
-        assert!(uc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(uc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 }

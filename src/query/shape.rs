@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use super::path;
 use super::super::graph::iterator;
 use super::super::graph::hasa::HasA;
@@ -60,12 +59,12 @@ impl<'a> fmt::Display for ShapeType<'a> {
 
 pub trait Shape {
     fn build_iterator(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>>;
-    fn optimize(&mut self, ctx: &Context, o: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>;
+    fn optimize(&mut self, o: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>;
     fn shape_type(&mut self) -> ShapeType;
 }
 
 pub trait Optimizer{
-    fn optimize_shape(&self, ctx: &Context, shape: &mut dyn Shape) -> Option<Rc<RefCell<dyn Shape>>>;
+    fn optimize_shape(&self, shape: &mut dyn Shape) -> Option<Rc<RefCell<dyn Shape>>>;
     fn quad_store(&self) -> Option<Rc<RefCell<dyn QuadStore>>>;
 }
 
@@ -83,7 +82,7 @@ struct ResolveValues {
 }
 
 impl Optimizer for ResolveValues {
-    fn optimize_shape(&self, ctx: &Context, shape: &mut dyn Shape) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize_shape(&self, shape: &mut dyn Shape) -> Option<Rc<RefCell<dyn Shape>>> {
         if let ShapeType::Lookup(l) = shape.shape_type() {
             return l.resolve(self.qs.clone())
         }
@@ -141,11 +140,11 @@ impl Shape for Lookup {
         return f.unwrap().borrow().build_iterator(qs)
     }
 
-    fn optimize(&mut self, ctx: &Context, o: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, o: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         if o.is_none() {
             return None
         }
-        let ns = o.unwrap().optimize_shape(ctx, self);
+        let ns = o.unwrap().optimize_shape(self);
         if ns.is_some() {
             return ns
         }
@@ -188,12 +187,12 @@ impl Shape for Fixed {
         return it;
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         if self.0.is_empty() {
             return None
         }
         if let Some(o) = r {
-            return o.optimize_shape(ctx, self)
+            return o.optimize_shape(self)
         }
         return None
     }
@@ -220,9 +219,9 @@ impl Shape for Null {
         return iterator::Null::new();
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>  {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>  {
         if r.is_some() {
-            return r.unwrap().optimize_shape(ctx, self)
+            return r.unwrap().optimize_shape(self)
         }
         return None
     }
@@ -250,9 +249,9 @@ impl Shape for AllNodes {
         qs.borrow().nodes_all_iterator()
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>  {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>>  {
         if r.is_some() {
-            return r.unwrap().optimize_shape(ctx, self)
+            return r.unwrap().optimize_shape(self)
         }
         return None      
     }
@@ -290,7 +289,7 @@ impl Shape for Intersect {
         return iterator::and::And::new(sub)
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         if self.0.is_empty() {
             return None
         }
@@ -300,7 +299,7 @@ impl Shape for Intersect {
             if let ShapeType::Null = c.borrow_mut().shape_type() {
                 return None
             }
-            let v = c.borrow_mut().optimize(ctx, r);
+            let v = c.borrow_mut().optimize(r);
             if v.is_none() {
                 continue;
             }
@@ -346,7 +345,7 @@ impl Shape for NodesFrom {
         return HasA::new(qs.clone(), sub, self.dir.clone())
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -402,7 +401,7 @@ impl Shape for QuadFilter {
         LinksTo::new(qs.clone(), sub, self.dir.clone())
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -449,7 +448,7 @@ impl Shape for Quads {
         return iterator::and::And::new(its)
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -489,7 +488,7 @@ impl Shape for Save {
         return it
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -523,7 +522,7 @@ impl Shape for Union {
         return iterator::or::Or::new(sub)
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -546,7 +545,7 @@ impl Shape for Unique {
        return iterator::unique::Unique::new(it);
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -577,7 +576,7 @@ impl Shape for Recursive {
         return it
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         return None
     }
 
@@ -599,7 +598,7 @@ impl Shape for IteratorShape {
         return iterator::Null::new()
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -659,7 +658,7 @@ impl Shape for IntersectOpt {
         return it
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -692,7 +691,7 @@ impl Shape for Except {
         }
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -730,7 +729,7 @@ impl Shape for Page {
         return it
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -759,7 +758,7 @@ impl Shape for Sort {
         return iterator::sort::Sort::new(qs.clone(), it)
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         // TODO: Implement
         return None
     }
@@ -916,7 +915,7 @@ impl Shape for Filter {
         return it
     }
 
-    fn optimize(&mut self, ctx: &Context, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self, r: Option<&dyn Optimizer>) -> Option<Rc<RefCell<dyn Shape>>> {
         return None
     }
 
@@ -996,12 +995,12 @@ pub fn intersect_optional(main: Rc<RefCell<dyn Shape>>, opt: Rc<RefCell<dyn Shap
 }
 
 
-fn optimize(ctx: & Context, qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<RefCell<dyn Shape>>) -> Option<Rc<RefCell<dyn Shape>>> {
-    shape.borrow_mut().optimize(ctx, Some(&ResolveValues{qs}))
+fn optimize(qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<RefCell<dyn Shape>>) -> Option<Rc<RefCell<dyn Shape>>> {
+    shape.borrow_mut().optimize(Some(&ResolveValues{qs}))
 }
 
-pub fn build_iterator(ctx: & Context, qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn iterator::Shape>>{
-    let s = optimize(ctx, qs.clone(), shape.clone());
+pub fn build_iterator(qs: Rc<RefCell<dyn QuadStore>>, shape:Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn iterator::Shape>>{
+    let s = optimize(qs.clone(), shape.clone());
     let s = match s { Some(new_s) => new_s, None => shape.clone() };
     let a = s.borrow();
     a.build_iterator(qs.clone())

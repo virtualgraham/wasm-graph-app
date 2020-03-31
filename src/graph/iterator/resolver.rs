@@ -4,7 +4,6 @@ use super::super::value::Value;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Resolver {
@@ -39,7 +38,7 @@ impl Shape for Resolver {
     }
 
     #[allow(unused)]
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         return Ok(Costs {
             next_cost: 1,
             contains_cost: 1,
@@ -51,7 +50,7 @@ impl Shape for Resolver {
     }
 
     #[allow(unused)]
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         if self.order.is_empty() {
             return Some(Null::new())
         }
@@ -92,8 +91,8 @@ impl ResolverNext {
         }))
     }
 
-    fn resolve(&mut self, ctx: &Context) -> Result<(), String> {
-        let values = self.qs.refs_of(ctx, &self.order)?;
+    fn resolve(&mut self) -> Result<(), String> {
+        let values = self.qs.refs_of(&self.order)?;
         self.values = Vec::new();
 
         for value in values {
@@ -122,7 +121,7 @@ impl Base for ResolverNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         return false
     }
 
@@ -136,9 +135,9 @@ impl Base for ResolverNext {
 }
 
 impl Scanner for ResolverNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if !self.cached {
-            self.err = if let Err(e) = self.resolve(ctx) { Some(e) } else { None };
+            self.err = if let Err(e) = self.resolve() { Some(e) } else { None };
             if self.err.is_some() {
                 return false
             }
@@ -177,8 +176,8 @@ impl ResolverContains {
        }))
     }
 
-    fn resolve(&mut self, ctx: &Context) -> Result<(), String> {
-        let values = self.qs.refs_of(ctx, &self.order)?;
+    fn resolve(&mut self) -> Result<(), String> {
+        let values = self.qs.refs_of(&self.order)?;
 
         self.nodes = HashMap::new();
 
@@ -212,7 +211,7 @@ impl Base for ResolverContains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         return false
     }
 
@@ -226,9 +225,9 @@ impl Base for ResolverContains {
 }
 
 impl Index for ResolverContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         if !self.cached {
-            self.err = if let Err(e) = self.resolve(ctx) { Some(e) } else { None };
+            self.err = if let Err(e) = self.resolve() { Some(e) } else { None };
             if self.err.is_some() {
                 return false
             }

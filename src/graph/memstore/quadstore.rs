@@ -3,7 +3,6 @@ use crate::graph::refs::{Size, Ref, Namer, Content};
 use crate::graph::iterator::{Shape, Null};
 use crate::graph::quad::{QuadStore, Quad, Direction, Stats, Delta, IgnoreOptions, Procedure};
 
-use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -359,7 +358,7 @@ impl QuadStore for MemStore {
         Null::new()
     }
 
-    fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String> {
+    fn quad_iterator_size(&self, d: &Direction, r: &Ref) -> Result<Size, String> {
         let datastore = self.store.read().unwrap();
 
         let id = if let Some(k) = r.key() { k.as_i64() } else { None };
@@ -394,7 +393,7 @@ impl QuadStore for MemStore {
         }
     }
     
-    fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String> {
+    fn stats(&self, exact: bool) -> Result<Stats, String> {
         let datastore = self.store.read().unwrap();
 
         Ok(Stats {

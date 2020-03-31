@@ -4,7 +4,6 @@ use super::super::value::Value;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Fixed {
@@ -44,7 +43,7 @@ impl Shape for Fixed {
     }
 
     #[allow(unused)]
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         Ok(Costs {
             contains_cost: 1,
             next_cost: 1,
@@ -56,7 +55,7 @@ impl Shape for Fixed {
     }
 
     #[allow(unused)]
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         if self.values.borrow().len() == 1 && self.values.borrow().get(0).is_none() {
             return Some(Null::new());
         }
@@ -106,7 +105,7 @@ impl Base for FixedNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -121,7 +120,7 @@ impl Base for FixedNext {
 
 impl Scanner for FixedNext {
     #[allow(unused)]
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.ind >= self.values.borrow().len() {
             return false
         }
@@ -166,7 +165,7 @@ impl Base for FixedContains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -181,7 +180,7 @@ impl Base for FixedContains {
 
 impl Index for FixedContains {
     #[allow(unused)]
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
         for (i, x) in self.keys.iter().enumerate() {
             if let Some(k) = v.key() {
                 if *x == *k {

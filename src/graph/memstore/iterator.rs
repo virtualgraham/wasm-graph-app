@@ -3,7 +3,6 @@ use crate::graph::refs::{Size, Ref, Content};
 use crate::graph::iterator::{Base, Scanner, Index, Shape, Costs, ShapeType};
 use crate::graph::quad::{Direction};
 
-use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -36,7 +35,7 @@ impl Shape for MemStoreIterator {
         MemStoreIteratorContains::new(self.quad_ids.clone(), self.d.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         Ok(Costs {
             contains_cost: ((self.quad_ids.len() as f64).ln() as i64) + 1,
             next_cost: 1,
@@ -47,7 +46,7 @@ impl Shape for MemStoreIterator {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         None
     }
 
@@ -102,7 +101,7 @@ impl Base for MemStoreIteratorNext {
         }
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -116,7 +115,7 @@ impl Base for MemStoreIteratorNext {
 }
 
 impl Scanner for MemStoreIteratorNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
 
         if self.done {
             println!("MemStoreAllIteratorNext called after done");
@@ -180,7 +179,7 @@ impl Base for MemStoreIteratorContains {
         }
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -194,7 +193,7 @@ impl Base for MemStoreIteratorContains {
 }
 
 impl Index for MemStoreIteratorContains {
-    fn contains(&mut self, ctx: &Context, v:&Ref) -> bool {
+    fn contains(&mut self, v:&Ref) -> bool {
         let id = if let Some(k) = v.key() { k.as_i64() } else { None };
         match id {
             Some(i) => {

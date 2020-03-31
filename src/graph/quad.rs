@@ -2,7 +2,6 @@ use super::value::Value;
 use super::refs::{Size, Ref, Namer};
 use super::iterator::{Shape};
 use super::transaction::Transaction;
-use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
@@ -108,9 +107,9 @@ pub enum Procedure {
 pub trait QuadStore : Namer {
     fn quad(&self, r: &Ref) -> Option<Quad>;
     fn quad_iterator(&self, d: &Direction, r: &Ref) -> Rc<RefCell<dyn Shape>>;
-    fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String>;
+    fn quad_iterator_size(&self, d: &Direction, r: &Ref) -> Result<Size, String>;
     fn quad_direction(&self, r: &Ref, d: &Direction) -> Option<Ref>;
-    fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String>;
+    fn stats(&self, exact: bool) -> Result<Stats, String>;
     
     fn apply_deltas(&mut self, deltas: Vec<Delta>, ignore_opts: &IgnoreOptions) -> Result<(), String>;
     // fn new_quad_writer(&self) -> Result<QuadWriter, String>;

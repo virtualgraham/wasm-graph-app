@@ -19,7 +19,6 @@ checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 name = "gizmo-graph-db"
 version = "0.0.0"
 dependencies = [
- "io-context",
  "maplit",
  "ordered-float",
  "regex",
@@ -27,12 +26,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
 ]
-
-[[package]]
-name = "io-context"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6deff8086863b4b598829cfe72d405540d1497fe997f903cc171aade51dae88c"
 
 [[package]]
 name = "itoa"

@@ -4,7 +4,6 @@ use super::super::refs;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Or {
@@ -66,7 +65,7 @@ impl Shape for Or {
         return OrContains::new(sub, self.is_short_circuiting)
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         let mut contains_cost = 0i64;
         let mut next_cost = 0i64;
         let mut size = refs::Size {
@@ -75,7 +74,7 @@ impl Shape for Or {
         };
 
         for sub in &self.sub {
-            let stats = sub.borrow_mut().stats(ctx)?;
+            let stats = sub.borrow_mut().stats()?;
             next_cost += stats.next_cost;
             contains_cost += stats.contains_cost;
             if self.is_short_circuiting {
@@ -95,9 +94,9 @@ impl Shape for Or {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
         let old = self.sub_iterators();
-        let opt_its = optimize_sub_iterators(ctx, &old.unwrap());
+        let opt_its = optimize_sub_iterators(&old.unwrap());
         let new_or = Or::new(vec![]);
         new_or.borrow_mut().is_short_circuiting = self.is_short_circuiting;
 
@@ -155,10 +154,10 @@ impl Base for OrNext {
         return self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if self.cur_ind.is_some() {
             let curr_it = self.sub.get(self.cur_ind.unwrap()).unwrap();
-            let ok = curr_it.borrow_mut().next_path(ctx);
+            let ok = curr_it.borrow_mut().next_path();
             if !ok {
                 self.err = curr_it.borrow().err();
             }
@@ -184,7 +183,7 @@ impl Base for OrNext {
 }
 
 impl Scanner for OrNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         if self.cur_ind.is_some() && self.cur_ind.unwrap() >= self.sub.len() {
             return false
         }
@@ -196,7 +195,7 @@ impl Scanner for OrNext {
             }
             let cur_it = self.sub.get(self.cur_ind.unwrap()).unwrap();
 
-            if cur_it.borrow_mut().next(ctx) {
+            if cur_it.borrow_mut().next() {
                 self.result = cur_it.borrow().result();
                 return true;
             }
@@ -240,10 +239,10 @@ impl OrContains {
        }))
     }
 
-    fn sub_its_contain(&mut self, ctx: &Context, val:&refs::Ref) -> Result<bool, String> {
+    fn sub_its_contain(&mut self, val:&refs::Ref) -> Result<bool, String> {
         let mut sub_is_good = false;
         for (i, sub) in self.sub.iter().enumerate() {
-            sub_is_good = sub.borrow_mut().contains(ctx, val);
+            sub_is_good = sub.borrow_mut().contains(val);
             if sub_is_good {
                 self.cur_ind = Some(i);
                 break
@@ -273,10 +272,10 @@ impl Base for OrContains {
         return self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         if self.cur_ind.is_some() {
             let curr_it = self.sub.get(self.cur_ind.unwrap()).unwrap();
-            let ok = curr_it.borrow_mut().next_path(ctx);
+            let ok = curr_it.borrow_mut().next_path();
             if !ok {
                 self.err = curr_it.borrow().err();
             }
@@ -302,8 +301,8 @@ impl Base for OrContains {
 }
 
 impl Index for OrContains {
-    fn contains(&mut self, ctx: &Context, val:&refs::Ref) -> bool {
-       let any_good = self.sub_its_contain(ctx, val);
+    fn contains(&mut self, val:&refs::Ref) -> bool {
+       let any_good = self.sub_its_contain(val);
        if let Err(err) = any_good {
             self.err = Some(err);
             return false

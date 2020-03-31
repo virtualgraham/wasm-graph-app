@@ -4,7 +4,6 @@ use super::super::refs;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct And {
@@ -37,9 +36,9 @@ impl And  {
         self.opt.as_mut().unwrap().push(sub);
     }
 
-    fn optimize_contains(&mut self, ctx: &Context) -> Result<(), String> {
+    fn optimize_contains(&mut self) -> Result<(), String> {
         self.check_list = Some(self.sub.iter().map(|s| s.clone()).collect());
-        return sort_by_contains_cost(ctx, self.check_list.as_mut().unwrap())
+        return sort_by_contains_cost(self.check_list.as_mut().unwrap())
     }
 }
 
@@ -95,18 +94,18 @@ impl Shape for And {
         AndContains::new(sub, opt)
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-       let s = get_stats_for_slice(ctx, &self.sub, if self.opt.is_some() { Some(&self.opt.as_ref().unwrap()) } else { None })?;
+    fn stats(&mut self) -> Result<Costs, String> {
+       let s = get_stats_for_slice(&self.sub, if self.opt.is_some() { Some(&self.opt.as_ref().unwrap()) } else { None })?;
        Ok(s.0)
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>>  {
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>>  {
 
         if self.sub.is_empty() {
             return Some(Null::new())
         }
 
-        let its = optimize_sub_iterators(ctx, &self.sub);
+        let its = optimize_sub_iterators(&self.sub);
 
         let out = optimize_replacement(&its);
 
@@ -114,20 +113,20 @@ impl Shape for And {
             return Some(out.unwrap())
         }
 
-        let its = optimize_order(ctx, &its);
+        let its = optimize_order(&its);
 
-        let its = materialize_its(ctx, &its).unwrap(); // TODO: why is there even an error?
+        let its = materialize_its(&its).unwrap(); // TODO: why is there even an error?
 
         let new_and = And::new(its);
 
         if self.opt.is_some() {
-            let opt = optimize_sub_iterators(ctx, self.opt.as_ref().unwrap());
+            let opt = optimize_sub_iterators(self.opt.as_ref().unwrap());
             for sub in opt {
                 new_and.borrow_mut().add_optional_iterator(sub.clone());
             }
         }
 
-        let _ = new_and.borrow_mut().optimize_contains(ctx);
+        let _ = new_and.borrow_mut().optimize_contains();
 
         // TODO: Logging
 
@@ -169,7 +168,7 @@ fn optimize_replacement(its: &Vec<Rc<RefCell<dyn Shape>>>) -> Option<Rc<RefCell<
     None
 }
 
-fn optimize_order(ctx: &Context, its: &Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<RefCell<dyn Shape>>> {
+fn optimize_order(its: &Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<RefCell<dyn Shape>>> {
     let mut best:Option<&Rc<RefCell<dyn Shape>>> = None;
     let mut best_cost:i64 = 1 << 62;
     let mut best_idx:Option<usize> = None;
@@ -177,7 +176,7 @@ fn optimize_order(ctx: &Context, its: &Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<Re
     let mut costs = Vec::new();
 
     for it in its {
-        let st = it.borrow_mut().stats(ctx);
+        let st = it.borrow_mut().stats();
         if st.is_ok() {
             costs.push(st.unwrap());
         }
@@ -216,11 +215,11 @@ fn optimize_order(ctx: &Context, its: &Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<Re
     return out;
 }
 
-fn sort_by_contains_cost(ctx: &Context, arr:&mut Vec<Rc<RefCell<dyn Shape>>>) -> Result<(), String> {
+fn sort_by_contains_cost(arr:&mut Vec<Rc<RefCell<dyn Shape>>>) -> Result<(), String> {
     // TODO: manage errors better
     // sort arr by cost
     arr.sort_by_cached_key(|s| {
-        let res = s.borrow_mut().stats(ctx);
+        let res = s.borrow_mut().stats();
         match res {
             Err(_) => 1 << 62,
             Ok(c) => c.contains_cost
@@ -230,9 +229,9 @@ fn sort_by_contains_cost(ctx: &Context, arr:&mut Vec<Rc<RefCell<dyn Shape>>>) ->
     Ok(())
 }
 
-pub fn optimize_sub_iterators(ctx: &Context, its:&Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<RefCell<dyn Shape>>> {
+pub fn optimize_sub_iterators(its:&Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<RefCell<dyn Shape>>> {
     its.iter().map(|it| {
-        let n = it.borrow_mut().optimize(ctx);
+        let n = it.borrow_mut().optimize();
         if n.is_some() { n.unwrap() } else { it.clone() }
     }).collect()
 }
@@ -246,8 +245,8 @@ fn has_any_null_iterators(its:&Vec<Rc<RefCell<dyn Shape>>>) -> bool {
     false
 }
 
-fn materialize_its(ctx: &Context, its:&Vec<Rc<RefCell<dyn Shape>>>) -> Result<Vec<Rc<RefCell<dyn Shape>>>, String> {
-    let (all_stats, stats) = get_stats_for_slice(ctx, its, None)?;
+fn materialize_its(its:&Vec<Rc<RefCell<dyn Shape>>>) -> Result<Vec<Rc<RefCell<dyn Shape>>>, String> {
+    let (all_stats, stats) = get_stats_for_slice(its, None)?;
 
     let mut out = vec![its[0].clone()];
 
@@ -273,14 +272,14 @@ fn materialize_its(ctx: &Context, its:&Vec<Rc<RefCell<dyn Shape>>>) -> Result<Ve
 }
 
 #[allow(unused)]
-fn get_stats_for_slice(ctx: &Context, its:&Vec<Rc<RefCell<dyn Shape>>>, opt:Option<&Vec<Rc<RefCell<dyn Shape>>>>) -> Result<(Costs, Vec::<Costs>), String> {
+fn get_stats_for_slice(its:&Vec<Rc<RefCell<dyn Shape>>>, opt:Option<&Vec<Rc<RefCell<dyn Shape>>>>) -> Result<(Costs, Vec::<Costs>), String> {
     if its.is_empty() {
         return Ok((Costs::new(), Vec::new()))
     }
 
     let mut arr = Vec::new();
 
-    let primary_stats = its[0].borrow_mut().stats(ctx).unwrap();
+    let primary_stats = its[0].borrow_mut().stats().unwrap();
 
     let mut contains_cost = primary_stats.contains_cost;
     let mut next_cost = primary_stats.next_cost;
@@ -291,7 +290,7 @@ fn get_stats_for_slice(ctx: &Context, its:&Vec<Rc<RefCell<dyn Shape>>>, opt:Opti
     
     for i in 1..its.len() {
         let sub = &its[i];
-        let stats = sub.borrow_mut().stats(ctx).unwrap();
+        let stats = sub.borrow_mut().stats().unwrap();
 
         next_cost += stats.contains_cost * (1 + (primary_stats.size.value / (stats.size.value + 1)));
         contains_cost += stats.contains_cost;
@@ -351,16 +350,16 @@ impl Base for AndNext {
         }
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         let mut primary = self.primary.borrow_mut();
-        if primary.next_path(ctx) {
+        if primary.next_path() {
             return true
         } else if primary.err().is_some() {
             return false
         }
 
         let mut secondary = self.secondary.borrow_mut();
-        if secondary.next_path(ctx) {
+        if secondary.next_path() {
             return true
         } else if secondary.err().is_some() {
             return false
@@ -399,13 +398,13 @@ impl Base for AndNext {
 
 
 impl Scanner for AndNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         let mut primary = self.primary.borrow_mut();
         let mut secondary = self.secondary.borrow_mut();
-        while primary.next(ctx) {
+        while primary.next() {
             let cur = primary.result();
 
-            if cur.is_some() && secondary.contains(ctx, &cur.as_ref().unwrap()) {
+            if cur.is_some() && secondary.contains(&cur.as_ref().unwrap()) {
                 self.result = Some(cur.as_ref().unwrap().clone());
                 return true
             }
@@ -469,10 +468,10 @@ impl Base for AndContains {
         }
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         for _sub in &self.sub {
             let mut sub = _sub.borrow_mut();
-            if sub.next_path(ctx) {
+            if sub.next_path() {
                 return true
             }
             let err = sub.err();
@@ -486,7 +485,7 @@ impl Base for AndContains {
             if !self.opt_check.contains_key(&i) {
                 continue
             }
-            if sub.next_path(ctx) {
+            if sub.next_path() {
                 return true
             }
             let err = sub.err();
@@ -540,11 +539,11 @@ impl Base for AndContains {
 
 
 impl Index for AndContains {
-    fn contains(&mut self, ctx: &Context, val:&refs::Ref) -> bool {
+    fn contains(&mut self, val:&refs::Ref) -> bool {
         let prev = self.result.as_ref();
         for (i, _sub) in self.sub.iter().enumerate() {
             let mut sub = _sub.borrow_mut();
-            if !sub.contains(ctx, val) {
+            if !sub.contains(val) {
                 let err = sub.err();
                 if err.is_some() {
                     self.err = err;
@@ -554,7 +553,7 @@ impl Index for AndContains {
                 if prev.is_some() {
                     for j in 0..i {
                         let mut sub_j = self.sub[j].borrow_mut();
-                        sub_j.contains(ctx, prev.unwrap());
+                        sub_j.contains(prev.unwrap());
                         let err = sub_j.err();
                         if err.is_some() {
                             self.err = err;
@@ -568,7 +567,7 @@ impl Index for AndContains {
         }
         self.result = Some(val.clone());
         for (i, sub) in self.opt.iter().enumerate() {
-            self.opt_check.insert(i, sub.borrow_mut().contains(ctx, val));
+            self.opt_check.insert(i, sub.borrow_mut().contains(val));
         }
         true
     }

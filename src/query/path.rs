@@ -6,7 +6,6 @@ use crate::query::shape::{Shape, AllNodes, Lookup, IteratorShape, build_iterator
 use std::rc::Rc;
 use std::cell::RefCell;
 use super::morphism;
-use io_context::Context;
 use crate::query::gizmo;
 
 
@@ -210,9 +209,9 @@ impl Path {
     }
 
 
-    pub fn build_iterator_on(&self, ctx: &Context, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
+    pub fn build_iterator_on(&self, qs: Rc<RefCell<dyn QuadStore>>) -> Rc<RefCell<dyn iterator::Shape>> {
         let s = self.shape().clone();
-        build_iterator(ctx, qs, s)
+        build_iterator(qs, s)
     }
 }
 

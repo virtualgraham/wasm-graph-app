@@ -4,7 +4,6 @@ use super::quad::{Direction, QuadStore};
 use super::iterator::{Shape, Scanner, Costs, Index, Base, ShapeType, is_null, Null};
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -47,8 +46,8 @@ impl Shape for HasA {
         HasAContains::new(self.qs.clone(), self.primary.borrow().lookup(), self.dir.clone())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let subit_stats = self.primary.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let subit_stats = self.primary.borrow_mut().stats()?;
         let fanin_factor = 1i64;
         let fanout_factor = 30i64;
         let next_constant = 2i64;
@@ -63,8 +62,8 @@ impl Shape for HasA {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_primary = self.primary.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_primary = self.primary.borrow_mut().optimize();
         if new_primary.is_some() {
             self.primary = new_primary.unwrap();
             if is_null(&self.primary) {
@@ -125,8 +124,8 @@ impl Base for HasANext {
         self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        self.primary.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        self.primary.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -139,8 +138,8 @@ impl Base for HasANext {
 }
 
 impl Scanner for HasANext {
-    fn next(&mut self, ctx: &Context) -> bool {
-        if !self.primary.borrow_mut().next(ctx) {
+    fn next(&mut self) -> bool {
+        if !self.primary.borrow_mut().next() {
             return false
         }
         
@@ -184,14 +183,14 @@ impl HasAContains {
         return self.dir.clone()
     }
 
-    fn next_contains(&mut self, ctx: &Context) -> bool {
+    fn next_contains(&mut self) -> bool {
         if self.results.is_none() {
             return false
         }
-        while self.results.as_ref().unwrap().borrow_mut().next(ctx) {
+        while self.results.as_ref().unwrap().borrow_mut().next() {
             let link = self.results.as_ref().unwrap().borrow().result();
             // TODO logging
-            if self.primary.borrow_mut().contains(ctx, link.as_ref().unwrap()) {
+            if self.primary.borrow_mut().contains(link.as_ref().unwrap()) {
                 // match self.qs.borrow().quad_direction(link.as_ref().unwrap(), &self.dir) {
                 //     Some(q) => {
                 //         self.result = Some(q);
@@ -228,9 +227,9 @@ impl Base for HasAContains {
         return self.result.clone()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         // TODO: logging
-        if self.primary.borrow_mut().next_path(&ctx) {
+        if self.primary.borrow_mut().next_path() {
             return true
         }
         self.err = self.primary.borrow().err();
@@ -238,7 +237,7 @@ impl Base for HasAContains {
             return false
         }
 
-        let result = self.next_contains(ctx);
+        let result = self.next_contains();
         if self.err.is_some() {
             return false
         }
@@ -263,13 +262,13 @@ impl Base for HasAContains {
 }
 
 impl Index for HasAContains {
-    fn contains(&mut self, ctx: &Context, val:&Ref) -> bool {
+    fn contains(&mut self, val:&Ref) -> bool {
         // TODO logging
         if self.results.is_some() {
             let _ = self.results.as_ref().unwrap().borrow_mut().close();
         }
         self.results = Some(self.qs.borrow().quad_iterator(&self.dir, val).borrow().iterate());
-        let ok = self.next_contains(ctx);
+        let ok = self.next_contains();
         if self.err.is_some() {
             return false
         }

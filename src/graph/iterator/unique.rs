@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Unique {
@@ -38,8 +37,8 @@ impl Shape for Unique {
         UniqueContains::new(self.sub_it.borrow().lookup())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let sub_stats = self.sub_it.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let sub_stats = self.sub_it.borrow_mut().stats()?;
         return Ok(Costs {
             next_cost: sub_stats.next_cost * UNIQUENESS_FACTOR,
             contains_cost: sub_stats.contains_cost,
@@ -50,8 +49,8 @@ impl Shape for Unique {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_it = self.sub_it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_it = self.sub_it.borrow_mut().optimize();
         if new_it.is_some() {
             self.sub_it = new_it.unwrap()
         }
@@ -104,7 +103,7 @@ impl Base for UniqueNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -119,8 +118,8 @@ impl Base for UniqueNext {
 }
 
 impl Scanner for UniqueNext {
-    fn next(&mut self, ctx: &Context) -> bool {
-        while self.sub_it.borrow_mut().next(ctx) {
+    fn next(&mut self) -> bool {
+        while self.sub_it.borrow_mut().next() {
             let curr = self.sub_it.borrow().result();
             let key = curr.as_ref().unwrap().key().clone();
             if key.is_some() && !self.seen.contains(key.unwrap()) {
@@ -164,7 +163,7 @@ impl Base for UniqueContains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -178,7 +177,7 @@ impl Base for UniqueContains {
 }
 
 impl Index for UniqueContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
-        self.sub_it.borrow_mut().contains(ctx, v)
+    fn contains(&mut self, v:&refs::Ref) -> bool {
+        self.sub_it.borrow_mut().contains(v)
     }
 }

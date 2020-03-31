@@ -4,7 +4,6 @@ use super::super::refs;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 pub struct Not {
@@ -38,9 +37,9 @@ impl Shape for Not {
         NotContains::new(self.primary.borrow().lookup())
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
-        let primary_stats = self.primary.borrow_mut().stats(ctx)?;
-        let all_stats = self.all_it.borrow_mut().stats(ctx)?;
+    fn stats(&mut self) -> Result<Costs, String> {
+        let primary_stats = self.primary.borrow_mut().stats()?;
+        let all_stats = self.all_it.borrow_mut().stats()?;
         return Ok(Costs {
             next_cost: all_stats.next_cost + primary_stats.contains_cost,
             contains_cost: primary_stats.contains_cost,
@@ -51,8 +50,8 @@ impl Shape for Not {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let optimized_primary_it = self.primary.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let optimized_primary_it = self.primary.borrow_mut().optimize();
         if optimized_primary_it.is_some() {
             self.primary = optimized_primary_it.unwrap();
         }
@@ -104,7 +103,7 @@ impl Base for NotNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -133,10 +132,10 @@ impl Base for NotNext {
 }
 
 impl Scanner for NotNext {
-    fn next(&mut self, ctx: &Context) -> bool {
-        while self.all_it.borrow_mut().next(ctx) {
+    fn next(&mut self) -> bool {
+        while self.all_it.borrow_mut().next() {
             let curr = self.all_it.borrow().result();
-            if !self.primary_it.borrow_mut().contains(ctx, curr.as_ref().unwrap()) {
+            if !self.primary_it.borrow_mut().contains(curr.as_ref().unwrap()) {
                 self.result = curr;
                 return true
             }
@@ -181,7 +180,7 @@ impl Base for NotContains {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         false
     }
 
@@ -195,8 +194,8 @@ impl Base for NotContains {
 }
 
 impl Index for NotContains {
-    fn contains(&mut self, ctx: &Context, v:&refs::Ref) -> bool {
-        if self.primary_it.borrow_mut().contains(ctx, v) {
+    fn contains(&mut self, v:&refs::Ref) -> bool {
+        if self.primary_it.borrow_mut().contains(v) {
             return false
         }
         self.err = self.primary_it.borrow().err();

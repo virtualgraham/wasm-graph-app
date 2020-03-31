@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::or::{Or};
 use gizmo_graph_db::graph::iterator::{Shape};
@@ -9,8 +8,6 @@ use super::common;
 
 #[test]
 fn test_or_iterator_basics() {
-    let ctx = Context::background();
-
     let or = Or::new(Vec::new());
 
     let f1 = Fixed::new(vec![
@@ -29,7 +26,7 @@ fn test_or_iterator_basics() {
     or.borrow_mut().add_sub_iterator(f1);
     or.borrow_mut().add_sub_iterator(f2);
 
-    let stats = or.borrow_mut().stats(&ctx);
+    let stats = or.borrow_mut().stats();
     
 
     assert_eq!(7, stats.as_ref().unwrap().size.value);
@@ -40,7 +37,7 @@ fn test_or_iterator_basics() {
         assert_eq!(expect, common::iterated(or.clone()));
     }
 
-    let opt_or = or.borrow_mut().optimize(&ctx);
+    let opt_or = or.borrow_mut().optimize();
     if let Some(o) = opt_or {
         assert_eq!(expect, common::iterated(o.clone()));
     } else {
@@ -49,19 +46,17 @@ fn test_or_iterator_basics() {
     
     let orc = or.borrow().lookup();
     for v in vec![2,3,21] {
-        assert!(orc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(orc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 
     for v in vec![22, 5, 0] {
-        assert!(!orc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(!orc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 }
 
 
 #[test]
 fn test_short_circuiting_or_basics() {
-    let ctx = Context::background();
-
     let f1 = Fixed::new(vec![
         Ref::new_i64_node(1),
         Ref::new_i64_node(2),
@@ -80,7 +75,7 @@ fn test_short_circuiting_or_basics() {
     or.borrow_mut().add_sub_iterator(f1.clone());
     or.borrow_mut().add_sub_iterator(f2.clone());
 
-    let stats = or.borrow_mut().stats(&ctx);
+    let stats = or.borrow_mut().stats();
     assert_eq!(stats.as_ref().unwrap().size, Size {
         value: 4,
         exact: true
@@ -97,7 +92,7 @@ fn test_short_circuiting_or_basics() {
     }
 
 
-    let opt_or = or.borrow_mut().optimize(&ctx);
+    let opt_or = or.borrow_mut().optimize();
     if let Some(o) = opt_or {
         assert_eq!(expect, common::iterated(o.clone()));
     } else {
@@ -111,11 +106,11 @@ fn test_short_circuiting_or_basics() {
 
     let orc = or.borrow().lookup();
     for v in vec![2, 3, 21] {
-        assert!(orc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(orc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 
     for v in vec![22, 5, 0] {
-        assert!(!orc.borrow_mut().contains(&ctx, &Ref::new_i64_node(v)));
+        assert!(!orc.borrow_mut().contains(&Ref::new_i64_node(v)));
     }
 
 
@@ -128,7 +123,7 @@ fn test_short_circuiting_or_basics() {
         assert_eq!(expect, common::iterated(or.clone()));
     }
 
-    let opt_or = or.borrow_mut().optimize(&ctx);
+    let opt_or = or.borrow_mut().optimize();
     if let Some(o) = opt_or {
         assert_eq!(expect, common::iterated(o.clone()));
     } else {
@@ -139,28 +134,26 @@ fn test_short_circuiting_or_basics() {
 
 #[test]
 fn test_or_iterator_err() {
-    let ctx = Context::background();
     let or_err = common::Test::new(false, Some("unique".to_string()));
 
     let fix1 = Fixed::new(vec![Ref::new_i64_node(1)]);
 
     let or = Or::new( vec![fix1, or_err, common::Int64::new(1, 5, true)] ).borrow().iterate();
 
-    assert!(or.borrow_mut().next(&ctx));
+    assert!(or.borrow_mut().next());
     assert_eq!(Ref::new_i64_node(1), or.borrow().result().unwrap());
 
-    assert!(!or.borrow_mut().next(&ctx));
+    assert!(!or.borrow_mut().next());
     assert_eq!("unique", or.borrow().err().unwrap());
 }
 
 
 #[test]
 fn test_short_circuit_or_iterator_err() {
-    let ctx = Context::background();
     let or_err = common::Test::new(false, Some("unique".to_string()));
 
     let or = Or::new( vec![or_err, common::Int64::new(1, 5, true)] ).borrow().iterate();
 
-    assert!(!or.borrow_mut().next(&ctx));
+    assert!(!or.borrow_mut().next());
     assert_eq!("unique", or.borrow().err().unwrap());
 }

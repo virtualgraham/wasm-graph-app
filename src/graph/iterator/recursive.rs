@@ -6,7 +6,6 @@ use super::super::value::Value;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use io_context::Context;
 use std::fmt;
 
 struct SeenAt {
@@ -56,14 +55,14 @@ impl Shape for Recursive {
         return RecursiveContains::new(RecursiveNext::new(self.sub_it.borrow().iterate(), self.morphism.clone(), self.max_depth, self.depth_tags.clone()))
     }
 
-    fn stats(&mut self, ctx: &Context) -> Result<Costs, String> {
+    fn stats(&mut self) -> Result<Costs, String> {
         let base = Fixed::new(Vec::new());
         base.borrow_mut().add(refs::Ref::new_i64_node(20));
        
         let fanoutit = self.morphism.morph((base as Rc<RefCell<dyn Shape>>).clone());
 
-        let fanoutit_stats = fanoutit.borrow_mut().stats(ctx)?;
-        let subit_stats = self.sub_it.borrow_mut().stats(ctx)?;
+        let fanoutit_stats = fanoutit.borrow_mut().stats()?;
+        let subit_stats = self.sub_it.borrow_mut().stats()?;
         let size = ((subit_stats.size.value * subit_stats.size.value) as f64).powf(5f64) as i64;
         return Ok(Costs {
             next_cost: subit_stats.next_cost + fanoutit_stats.next_cost,
@@ -75,8 +74,8 @@ impl Shape for Recursive {
         })
     }
 
-    fn optimize(&mut self, ctx: &Context) -> Option<Rc<RefCell<dyn Shape>>> {
-        let new_it = self.sub_it.borrow_mut().optimize(ctx);
+    fn optimize(&mut self) -> Option<Rc<RefCell<dyn Shape>>> {
+        let new_it = self.sub_it.borrow_mut().optimize();
         if new_it.is_some() {
             self.sub_it = new_it.unwrap();
         }
@@ -201,7 +200,7 @@ impl Base for RecursiveNext {
     }
 
     #[allow(unused)]
-    fn next_path(&mut self, ctx: &Context) -> bool {
+    fn next_path(&mut self) -> bool {
         let key = &self.contains_value.as_ref().unwrap().key();
         if key.is_none() { return false }
 
@@ -233,11 +232,11 @@ impl Base for RecursiveNext {
 }
 
 impl Scanner for RecursiveNext {
-    fn next(&mut self, ctx: &Context) -> bool {
+    fn next(&mut self) -> bool {
         self.path_index = 0;
 
         if self.depth == 0 {
-            while self.sub_it.borrow_mut().next(ctx) {
+            while self.sub_it.borrow_mut().next() {
                 let res = self.sub_it.borrow().result().unwrap();
 
                 if res.key().is_none() { continue }
@@ -254,7 +253,7 @@ impl Scanner for RecursiveNext {
                     self.path_map.get_mut(&key).unwrap().push(tags);
                 }
 
-                while self.sub_it.borrow_mut().next_path(ctx) {
+                while self.sub_it.borrow_mut().next_path() {
                     let mut tags:HashMap<String, refs::Ref> = HashMap::new();
                     self.sub_it.borrow().tag_results(&mut tags);
 
@@ -268,7 +267,7 @@ impl Scanner for RecursiveNext {
         }
 
         loop {
-            if !self.next_it.borrow_mut().next(ctx) {
+            if !self.next_it.borrow_mut().next() {
                 if self.max_depth > 0 && self.depth >= self.max_depth {
                     return false
                 } else if self.depth_cache.is_empty() {
@@ -343,8 +342,8 @@ impl Base for RecursiveContains {
         self.next.borrow().result()
     }
 
-    fn next_path(&mut self, ctx: &Context) -> bool {
-        self.next.borrow_mut().next_path(ctx)
+    fn next_path(&mut self) -> bool {
+        self.next.borrow_mut().next_path()
     }
 
     fn err(&self) -> Option<String> {
@@ -357,7 +356,7 @@ impl Base for RecursiveContains {
 }
 
 impl Index for RecursiveContains {
-    fn contains(&mut self, ctx: &Context, val:&refs::Ref) -> bool {
+    fn contains(&mut self, val:&refs::Ref) -> bool {
         self.next.borrow_mut().path_index = 0;
 
         if val.key().is_none() { return false }
@@ -373,7 +372,7 @@ impl Index for RecursiveContains {
             self.tags = tags.unwrap();
             return true
         }
-        while self.next.borrow_mut().next(ctx) {
+        while self.next.borrow_mut().next() {
             let n = self.next.borrow().result().unwrap();
             let nkey = n.key();
             if nkey.is_none() { return false }

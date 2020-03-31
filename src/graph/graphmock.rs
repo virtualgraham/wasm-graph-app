@@ -3,7 +3,6 @@ use super::iterator::{Shape};
 use super::iterator::fixed::{Fixed};
 use super::value::{Value};
 use super::refs::{Size, Ref, Content, pre_fetched, Namer};
-use io_context::Context;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -76,7 +75,7 @@ impl QuadStore for Store {
 
 
     #[allow(unused)]
-    fn quad_iterator_size(&self, ctx: &Context, d: &Direction, r: &Ref) -> Result<Size, String> {
+    fn quad_iterator_size(&self, d: &Direction, r: &Ref) -> Result<Size, String> {
         let mut sz = Size {
             value: 0,
             exact: true
@@ -103,7 +102,7 @@ impl QuadStore for Store {
 
 
     #[allow(unused)]
-    fn stats(&self, ctx: &Context, exact: bool) -> Result<Stats, String> {
+    fn stats(&self, exact: bool) -> Result<Stats, String> {
         let mut set = HashSet::new();
         for q in &self.data {
             for d in vec![Direction::Label, Direction::Object, Direction::Predicate, Direction::Subject] {

@@ -1,4 +1,3 @@
-use io_context::Context;
 use gizmo_graph_db::graph::iterator::fixed::{Fixed};
 use gizmo_graph_db::graph::iterator::{Shape};
 use gizmo_graph_db::graph::refs::{Namer};
@@ -12,7 +11,6 @@ use std::collections::HashSet;
 
 #[test]
 fn test_links_to() {
-    let ctx = Context::background();
     let object = Value::from("cool");
     let q = Quad {
         subject: Value::from("alice"),
@@ -30,6 +28,6 @@ fn test_links_to() {
     fixed.borrow_mut().add(val);
     let lto = LinksTo::new(qs.clone(), fixed, Direction::Object).borrow().iterate();
 
-    assert!(lto.borrow_mut().next(&ctx));
+    assert!(lto.borrow_mut().next());
     assert_eq!(q, qs.borrow().quad(lto.borrow().result().as_ref().unwrap()).unwrap());
 }
