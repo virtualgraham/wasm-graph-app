@@ -258,6 +258,12 @@ impl Via {
     }
 }
 
+impl From<&mut dyn Iterator<Item = Value>> for Via {
+    fn from(v: &mut dyn Iterator<Item = Value>) -> Self {
+        Via::Values(v.collect())
+    }
+}
+
 impl From<Option<Value>> for Via {
     fn from(v: Option<Value>) -> Self {
         match v {

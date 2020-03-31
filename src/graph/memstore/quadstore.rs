@@ -381,13 +381,15 @@ impl QuadStore for MemStore {
             Some(q) => {
                 let id = q.dir(d);
                 if id == 0 {
-                    return None
+                    // The quad exsists, but the value is none
+                    return Some(Ref::none())
                 }
                 return Some(Ref {
                     k: Value::from(id),
                     content: Content::None
                 })
             }
+            // the quad does not exsist
             None => None
         }
     }

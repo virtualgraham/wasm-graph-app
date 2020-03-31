@@ -19,8 +19,7 @@ pub fn new_memory_graph() -> GraphWrapper {
     let s = Rc::new(RefCell::new(Session {
         ctx: Rc::new(RefCell::new(Context::background())),
         qs: qs.clone(),
-        qw: QuadWriter::new(qs.clone(), IgnoreOptions{ignore_dup: true, ignore_missing: true}),
-        limit: -1
+        qw: QuadWriter::new(qs.clone(), IgnoreOptions{ignore_dup: true, ignore_missing: true})
     }));
 
     let g = Graph::new(s.clone());
@@ -64,8 +63,7 @@ impl GraphWrapper {
 pub struct Session {
     ctx: Rc<RefCell<Context>>,
     qs: Rc<RefCell<dyn QuadStore>>,
-    qw: QuadWriter,
-    limit: i64
+    qw: QuadWriter
 }
 
 impl Session {
@@ -85,11 +83,11 @@ impl Session {
     }
 
     fn run_tag_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::TagEachIterator {
-        iterator::iterate::TagEachIterator::new(self.ctx.clone(), it, false, self.limit, true)
+        iterator::iterate::TagEachIterator::new(self.ctx.clone(), it, false, true)
     }
 
     fn run_each_iterator(&mut self, it: Rc<RefCell<dyn iterator::Shape>>) -> iterator::iterate::EachIterator {
-        iterator::iterate::EachIterator::new(self.ctx.clone(), it, false, self.limit, true)
+        iterator::iterate::EachIterator::new(self.ctx.clone(), it, false, true)
     }
 }
 
@@ -155,29 +153,17 @@ impl Path {
     // Finals
     ///////////////
 
-    pub fn get_limit(&self, limit: i64) -> impl Iterator<Item = HashMap<String, Value>> {
+    pub fn iter(&self) -> impl Iterator<Item = HashMap<String, Value>> {
         let it = self.build_iterator_tree();
         let it = iterator::save::tag(&it, &"id");
-        self.session.borrow_mut().limit = limit; 
         let qs = self.session.borrow().qs.clone();
         self.session.borrow_mut().run_tag_each_iterator(it).filter_map(move |r| tags_to_value_map(&r, &*qs.borrow()))
     }
 
-    pub fn all(&mut self) -> impl Iterator<Item = HashMap<String, Value>> {
-        let limit = self.session.borrow().limit;
-        self.get_limit(limit)
-    }
-
-    pub fn get_limit_values(&self, limit: i64) -> impl Iterator<Item = Value> {
+    pub fn iter_values(&self) -> impl Iterator<Item = Value> {
         let it = self.build_iterator_tree();
-        self.session.borrow_mut().limit = limit; 
         let qs = self.session.borrow().qs.clone();
         self.session.borrow_mut().run_each_iterator(it).filter_map(move |r| ref_to_value(&r, &*qs.borrow()))
-    }
-
-    pub fn all_values(&mut self) -> impl Iterator<Item = Value> {
-        let limit = self.session.borrow().limit;
-        self.get_limit_values(limit)
     }
 
     pub fn count(&mut self) -> i64 {

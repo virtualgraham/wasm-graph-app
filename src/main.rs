@@ -45,7 +45,7 @@ fn main() {
     let mut r:Vec<String> = g.v("<greg>")
         .label_context("<smart_graph>", None)
         .out("<status>", None)
-        .all_values().map(|v| v.to_string()).collect();
+        .iter_values().map(|v| v.to_string()).collect();
 
     let mut f:Vec<String> = vec![
         "smart_person".into(),

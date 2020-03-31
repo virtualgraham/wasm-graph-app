@@ -11,8 +11,7 @@ pub struct BaseIterator {
     s: Rc<RefCell<dyn Shape>>,
     it: Option<Rc<RefCell<dyn Scanner>>>,
     paths: bool,
-    optimize: bool, 
-    limit: i64,
+    optimize: bool,
     n: i64
 }
 
@@ -36,7 +35,7 @@ impl BaseIterator {
 
 
     fn next_val(&mut self) -> bool {
-        let ok = (self.limit < 0 || self.n < self.limit) && self.it.as_ref().unwrap().borrow_mut().next(&*self.ctx.borrow());
+        let ok = self.it.as_ref().unwrap().borrow_mut().next(&*self.ctx.borrow());
         if ok {
             self.n += 1;
         }
@@ -44,7 +43,7 @@ impl BaseIterator {
     }
 
     fn next_path(&mut self) -> bool {
-        let ok = (self.limit < 0 || self.n < self.limit) && self.it.as_ref().unwrap().borrow_mut().next_path(&*self.ctx.borrow());
+        let ok = self.it.as_ref().unwrap().borrow_mut().next_path(&*self.ctx.borrow());
         if ok {
             self.n += 1;
         }
@@ -58,7 +57,7 @@ pub struct TagEachIterator {
 }
 
 impl TagEachIterator {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, limit: i64, paths: bool) -> TagEachIterator {
+    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> TagEachIterator {
         TagEachIterator {
             base: BaseIterator {
                 ctx,
@@ -66,7 +65,6 @@ impl TagEachIterator {
                 it: None,
                 paths,
                 optimize,
-                limit,
                 n: 0
             }
         }
@@ -123,7 +121,7 @@ pub struct EachIterator {
 }
 
 impl EachIterator {
-    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, limit: i64, paths: bool) -> EachIterator {
+    pub fn new(ctx: Rc<RefCell<Context>>, it: Rc<RefCell<dyn Shape>>, optimize: bool, paths: bool) -> EachIterator {
         EachIterator {
             base: BaseIterator {
                 ctx,
@@ -131,7 +129,6 @@ impl EachIterator {
                 it: None,
                 paths,
                 optimize,
-                limit,
                 n: 0
             }
         }
