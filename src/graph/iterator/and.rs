@@ -238,7 +238,7 @@ pub fn optimize_sub_iterators(its:&Vec<Rc<RefCell<dyn Shape>>>) -> Vec<Rc<RefCel
 
 fn has_any_null_iterators(its:&Vec<Rc<RefCell<dyn Shape>>>) -> bool {
     for it in its {
-        if is_null(it) {
+        if is_null(&mut*it.borrow_mut()) {
             return true
         }
     }
@@ -254,9 +254,9 @@ fn materialize_its(its:&Vec<Rc<RefCell<dyn Shape>>>) -> Result<Vec<Rc<RefCell<dy
         let it = &its[i];
         let st = &stats[i];
         if st.size.value*st.next_cost < (st.contains_cost * (1 + (st.size.value / (all_stats.size.value + 1)))) {
-            if height(it, |it| {
+            if height(&mut *it.borrow_mut(), |it| {
                 //it.borrow().string() != "Materialize"
-                match it.borrow_mut().shape_type() {                                                                 
+                match it.shape_type() {                                                                 
                     ShapeType::Materialize => false,                                     
                     _ => true,                                                            
                 }

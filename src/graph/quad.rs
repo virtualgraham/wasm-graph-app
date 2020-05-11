@@ -8,7 +8,6 @@ use std::fmt;
 use std::slice::Iter;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[derive(Serialize, Deserialize)]
 pub struct Quad {
     pub subject: Value,
     pub predicate: Value,

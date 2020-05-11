@@ -63,12 +63,12 @@ impl Morphism for IsMorphism {
 //////////////////////////////////////////////////////////
 
 pub struct InMorphism {
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
     via: Via
 }
 
 impl InMorphism {
-    pub fn new(tags: Vec<String>, via: Via) -> Rc<dyn Morphism> {
+    pub fn new(tags: Option<Vec<String>>, via: Via) -> Rc<dyn Morphism> {
         Rc::new(InMorphism {
             tags, 
             via
@@ -87,19 +87,19 @@ impl Morphism for InMorphism {
     }
 
     fn tags(&self) -> Option<Vec<String>> { 
-        Some(self.tags.clone())
+        self.tags.clone()
     }
 }
 
 //////////////////////////////////////////////////////////
 
 pub struct OutMorphism {
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
     via: Via
 }
 
 impl OutMorphism {
-    pub fn new(tags: Vec<String>, via: Via) -> Rc<dyn Morphism> {
+    pub fn new(tags: Option<Vec<String>>, via: Via) -> Rc<dyn Morphism> {
         Rc::new(OutMorphism {
             tags, 
             via
@@ -116,17 +116,21 @@ impl Morphism for OutMorphism {
         println!("OutMorphism apply()");
         return (new_in_out(shape, self.via.as_shape(), ctx.label_set.clone(), self.tags.clone(), false), None)
     }
+
+    fn tags(&self) -> Option<Vec<String>> { 
+        self.tags.clone()
+    }
 }
 
 //////////////////////////////////////////////////////////
 
 pub struct BothMorphism {
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
     via: Via
 }
 
 impl BothMorphism {
-    pub fn new(tags: Vec<String>, via: Via) -> Rc<dyn Morphism> {
+    pub fn new(tags: Option<Vec<String>>, via: Via) -> Rc<dyn Morphism> {
         Rc::new(BothMorphism {
             tags, 
             via
@@ -149,7 +153,7 @@ impl Morphism for BothMorphism {
     }
 
     fn tags(&self) -> Option<Vec<String>> { 
-        Some(self.tags.clone())
+        self.tags.clone()
     }
 }
 

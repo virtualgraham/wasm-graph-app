@@ -66,7 +66,7 @@ impl Shape for HasA {
         let new_primary = self.primary.borrow_mut().optimize();
         if new_primary.is_some() {
             self.primary = new_primary.unwrap();
-            if is_null(&self.primary) {
+            if is_null(&mut*self.primary.borrow_mut()) {
                 return Some(self.primary.clone())
             }
         }

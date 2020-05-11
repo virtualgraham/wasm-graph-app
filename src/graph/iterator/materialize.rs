@@ -66,7 +66,7 @@ impl Shape for Materialize {
         let n = self.sub.borrow_mut().optimize();
         if n.is_some() {
             self.sub = n.unwrap();
-            if is_null(&self.sub) {
+            if is_null(&mut*self.sub.borrow_mut()) {
                 return Some(self.sub.clone())
             }
         }

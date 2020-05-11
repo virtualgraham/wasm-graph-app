@@ -129,7 +129,7 @@ fn test_null_iterator_and() {
         panic!("Didn't Change")
     } 
 
-    assert!( is_null(new_it.as_ref().unwrap()) );
+    assert!( is_null( &mut*new_it.as_ref().unwrap().borrow_mut() ) );
 }
 
 

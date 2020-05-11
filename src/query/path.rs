@@ -50,17 +50,28 @@ impl Path {
         self.stack.push(morphism::IsMorphism::new(nodes));
     }
 
+    pub fn r#in(&mut self, via: Via) {
+        self.stack.push(morphism::InMorphism::new(None, via));
+    }
+
+    pub fn out(&mut self, via: Via)  {
+        self.stack.push(morphism::OutMorphism::new(None, via));
+    }
+
+    pub fn both(&mut self, via: Via)  {
+        self .stack.push(morphism::BothMorphism::new(None, via));
+    }
+
     pub fn in_with_tags(&mut self, tags: Vec<String>, via: Via) {
-        self.stack.push(morphism::InMorphism::new(tags, via));
+        self.stack.push(morphism::InMorphism::new(Some(tags), via));
     }
 
     pub fn out_with_tags(&mut self, tags: Vec<String>, via: Via)  {
-        self.stack.push(morphism::OutMorphism::new(tags, via));
+        self.stack.push(morphism::OutMorphism::new(Some(tags), via));
     }
 
-
     pub fn both_with_tags(&mut self, tags: Vec<String>, via: Via)  {
-        self .stack.push(morphism::BothMorphism::new(tags, via));
+        self .stack.push(morphism::BothMorphism::new(Some(tags), via));
     }
 
     pub fn follow(&mut self, path: Path) {

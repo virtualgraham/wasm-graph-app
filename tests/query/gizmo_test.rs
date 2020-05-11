@@ -15,25 +15,27 @@ fn simple_query_tests() {
 
     let simple_graph = gizmo::new_memory_graph();
 
-    simple_graph.write(vec![Quad::new("<alice>", "<follows>", "<bob>", ())]);
-    simple_graph.write(vec![Quad::new("<bob>", "<follows>", "<fred>", ())]);
-    simple_graph.write(vec![Quad::new("<bob>", "<status>", "cool_person", ())]);
+    simple_graph.write(vec![
+        Quad::new("<alice>", "<follows>", "<bob>", ()),
+        Quad::new("<bob>", "<follows>", "<fred>", ()),
+        Quad::new("<bob>", "<status>", "cool_person", ()),
 
-    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<bob>", ())]);
-    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<bob>", ())]);
-    simple_graph.write(vec![Quad::new("<charlie>", "<follows>", "<dani>", ())]);
+        Quad::new("<dani>", "<follows>", "<bob>", ()),
+        Quad::new("<charlie>", "<follows>", "<bob>", ()),
+        Quad::new("<charlie>", "<follows>", "<dani>", ()),
 
-    simple_graph.write(vec![Quad::new("<dani>", "<follows>", "<greg>", ())]);
-    simple_graph.write(vec![Quad::new("<dani>", "<status>", "cool_person", ())]);
-    simple_graph.write(vec![Quad::new("<emily>", "<follows>", "<fred>", ())]);
+        Quad::new("<dani>", "<follows>", "<greg>", ()),
+        Quad::new("<dani>", "<status>", "cool_person", ()),
+        Quad::new("<emily>", "<follows>", "<fred>", ()),
 
-    simple_graph.write(vec![Quad::new("<fred>", "<follows>", "<greg>", ())]);
-    simple_graph.write(vec![Quad::new("<greg>", "<status>", "cool_person", ())]);
-    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<follows>", ())]);
+        Quad::new("<fred>", "<follows>", "<greg>", ()),
+        Quad::new("<greg>", "<status>", "cool_person", ()),
+        Quad::new("<predicates>", "<are>", "<follows>", ()),
 
-    simple_graph.write(vec![Quad::new("<predicates>", "<are>", "<status>", ())]);
-    simple_graph.write(vec![Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>")]);
-    simple_graph.write(vec![Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")]);
+        Quad::new("<predicates>", "<are>", "<status>", ()),
+        Quad::new("<emily>", "<status>", "smart_person", "<smart_graph>"),
+        Quad::new("<greg>", "<status>", "smart_person", "<smart_graph>")
+    ]);
 
   
 

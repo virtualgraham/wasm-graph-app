@@ -31,11 +31,11 @@ pub struct Tags {
 
 impl Tags {
     pub fn add_tags(&mut self, tags: &Vec<String>) {
-        self.tags.append(&mut tags.clone());
+        self.tags.extend(tags.iter().map(|t| t.clone()));
     }
 
-    pub fn add_fixed_tag(&mut self, tag: String, value: &refs::Ref) {
-        self.fixed_tags.insert(tag, value.clone());
+    pub fn add_fixed_tag(&mut self, tag: String, value: refs::Ref) {
+        self.fixed_tags.insert(tag, value);
     }
 
     pub fn copy_from(&mut self, st:&Tags) {
@@ -135,28 +135,29 @@ pub trait Shape : fmt::Display {
 
 
 pub trait Morphism {
+    // creates a new shape, probably passing it the input shape
     fn morph(&self, shape: Rc<RefCell<dyn Shape>>) -> Rc<RefCell<dyn Shape>>;
 }
 
 
-pub fn is_null(it: &Rc<RefCell<dyn Shape>>) -> bool {
-    if let ShapeType::Null = it.borrow_mut().shape_type() {
+pub fn is_null(it: &mut dyn Shape) -> bool {
+    if let ShapeType::Null = it.shape_type() {
         return true
     } 
     return false
 }
 
 
-pub fn height(it: &Rc<RefCell<dyn Shape>>, filter: fn(&Rc<RefCell<dyn Shape>>) -> bool) -> i32 {
+pub fn height(it: &mut dyn Shape, filter: fn(&mut dyn Shape) -> bool) -> i32 {
     if !filter(it) { return 1 }
 
-    let subs = it.borrow().sub_iterators();
+    let subs = it.sub_iterators();
     let mut max_depth = 0;
 
     if subs.is_none() { return 1 }
 
     for sub in subs.unwrap() {
-        let h = height(&sub, filter);
+        let h = height(&mut*sub.borrow_mut(), filter);
         if h > max_depth {
             max_depth = h;
         }
